@@ -39,7 +39,20 @@ function onMessage(event) {
     console.log("📩 Nhận:", event.data);
     try {
         var data = JSON.parse(event.data);
-        // Có thể thêm xử lý riêng nếu cần (ví dụ cập nhật trạng thái)
+        if (data.type === "sensor") {
+
+            const tempEl = document.getElementById("temp");
+            const humEl = document.getElementById("hum");
+
+            if (tempEl) {
+                tempEl.innerHTML = parseFloat(data.temperature).toFixed(1);
+            }
+            if (humEl) {
+                humEl.innerHTML = parseFloat(data.humidity).toFixed(1);
+            }
+        }
+        
+
     } catch (e) {
         console.warn("Không phải JSON hợp lệ:", event.data);
     }
