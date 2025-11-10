@@ -31,15 +31,19 @@ void temp_humi_monitor(void *pvParameters){
         //Update global variables for temperature and humidity
         if (xSemaphoreTake(xMutex, pdMS_TO_TICKS(100)) == pdTRUE) 
         {
+            // Ghi vào biến global
             glob_temperature = temperature;
             glob_humidity = humidity;
-            xSemaphoreGive(xMutex);
 
+            // Tạo chuỗi JSON để gửi đi
             StaticJsonDocument<128> doc;
-            doc["type"] = "sensor"; 
+            doc["type"] = "sensor"; // Thêm 1 "type" để JS biết đây là gói tin gì
             doc["temperature"] = glob_temperature;
             doc["humidity"] = glob_humidity;
             serializeJson(doc, jsonString);
+            
+            // "Mở khóa"
+            xSemaphoreGive(xMutex);
         }
         if (jsonString.length() > 0) {
             Webserver_sendata(jsonString); // Gọi hàm từ task_webserver.cpp

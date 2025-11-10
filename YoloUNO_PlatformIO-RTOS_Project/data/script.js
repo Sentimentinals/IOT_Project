@@ -71,41 +71,6 @@ function showSection(id, event) {
 }
 
 
-// ==================== HOME GAUGES ====================
-window.onload = function () {
-    const gaugeTemp = new JustGage({
-        id: "gauge_temp",
-        value: 26,
-        min: -10,
-        max: 50,
-        donut: true,
-        pointer: false,
-        gaugeWidthScale: 0.25,
-        gaugeColor: "transparent",
-        levelColorsGradient: true,
-        levelColors: ["#00BCD4", "#4CAF50", "#FFC107", "#F44336"]
-    });
-
-    const gaugeHumi = new JustGage({
-        id: "gauge_humi",
-        value: 60,
-        min: 0,
-        max: 100,
-        donut: true,
-        pointer: false,
-        gaugeWidthScale: 0.25,
-        gaugeColor: "transparent",
-        levelColorsGradient: true,
-        levelColors: ["#42A5F5", "#00BCD4", "#0288D1"]
-    });
-
-    setInterval(() => {
-        gaugeTemp.refresh(Math.floor(Math.random() * 15) + 20);
-        gaugeHumi.refresh(Math.floor(Math.random() * 40) + 40);
-    }, 3000);
-};
-
-
 // ==================== DEVICE FUNCTIONS ====================
 function openAddRelayDialog() {
     document.getElementById('addRelayDialog').style.display = 'flex';
@@ -128,13 +93,13 @@ function renderRelays() {
         const card = document.createElement('div');
         card.className = 'device-card';
         card.innerHTML = `
-      <i class="fa-solid fa-bolt device-icon"></i>
+      <div class="device-icon">⚡</div>
       <h3>${r.name}</h3>
       <p>GPIO: ${r.gpio}</p>
       <button class="toggle-btn ${r.state ? 'on' : ''}" onclick="toggleRelay(${r.id})">
         ${r.state ? 'ON' : 'OFF'}
       </button>
-      <i class="fa-solid fa-trash delete-icon" onclick="showDeleteDialog(${r.id})"></i>
+      <span class="delete-icon" onclick="showDeleteDialog(${r.id})">🗑️</span>
     `;
         container.appendChild(card);
     });
