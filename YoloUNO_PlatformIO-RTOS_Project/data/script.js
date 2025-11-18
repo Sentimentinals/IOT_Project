@@ -134,6 +134,78 @@ function confirmDelete() {
 }
 
 
+// ==================== NEO LED CONTROL ====================
+let neoLedState = true; // Mặc định BẬT
+
+function toggleNeoLED() {
+    neoLedState = !neoLedState;
+    const btn = document.getElementById("neoLedBtn");
+    
+    if (neoLedState) {
+        btn.classList.add("on");
+        btn.textContent = "BẬT";
+    } else {
+        btn.classList.remove("on");
+        btn.textContent = "TẮT";
+    }
+    
+    // Gửi lệnh qua WebSocket
+    const ledJSON = JSON.stringify({
+        page: "neoled",
+        value: {
+            enabled: neoLedState
+        }
+    });
+    
+    Send_Data(ledJSON);
+    console.log("💡 NeoLED:", neoLedState ? "BẬT" : "TẮT");
+}
+
+
+// ==================== CSV CONTROLS ====================
+function downloadCSV() {
+    console.log("📥 Đang tải file CSV...");
+    window.location.href = "/download";
+}
+
+function clearCSV() {
+    if (confirm("⚠️ Bạn có chắc muốn xóa toàn bộ dữ liệu CSV?")) {
+        fetch("/clear")
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+                updateCSVInfo();
+            })
+            .catch(err => {
+                console.error("❌ Lỗi xóa CSV:", err);
+                alert("❌ Lỗi kết nối!");
+            });
+    }
+}
+
+function updateCSVInfo() {
+    fetch("/csv-info")
+        .then(response => response.json())
+        .then(data => {
+            const statusEl = document.getElementById("csvStatus");
+            if (data.exists) {
+                statusEl.innerHTML = `📄 Kích thước: ${data.size} bytes | Số dòng: ~${data.lines}`;
+            } else {
+                statusEl.innerHTML = "❌ Chưa có dữ liệu";
+            }
+        })
+        .catch(err => {
+            console.error("❌ Lỗi lấy thông tin CSV:", err);
+            document.getElementById("csvStatus").innerHTML = "⚠️ Không thể lấy thông tin";
+        });
+}
+
+// Cập nhật thông tin CSV mỗi 10 giây
+setInterval(updateCSVInfo, 10000);
+// Và cập nhật ngay khi load trang
+setTimeout(updateCSVInfo, 2000);
+
+
 // ==================== SETTINGS FORM (BỔ SUNG) ====================
 document.getElementById("settingsForm").addEventListener("submit", function (e) {
     e.preventDefault();

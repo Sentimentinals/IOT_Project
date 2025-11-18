@@ -362,3 +362,30 @@ body {
     opacity  : 1;
   }
 }
+
+/* CSV Buttons */
+.csv-btn {
+  padding      : 14px 28px;
+  border       : none;
+  border-radius: 12px;
+  font-size    : 16px;
+  font-weight  : 600;
+  cursor       : pointer;
+  transition   : all 0.3s ease;
+  box-shadow   : 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.csv-btn:hover {
+  transform : translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.download-btn {
+  background: linear-gradient(90deg, #27ae60, #229954);
+  color     : white;
+}
+
+.clear-btn {
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
+  color     : white;
+}

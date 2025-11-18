@@ -6,18 +6,29 @@ LiquidCrystal_I2C lcd(33,16,2);
 
 void temp_humi_monitor(void *pvParameters){
     Serial.println(">>> Task temp_humi_monitor: Started!");
-    Wire.begin(11, 12);
-    Serial.begin(115200);
-    dht20.begin();
+    
+    // Đợi I2C bus đã được khởi tạo
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
+    // Khởi tạo DHT20 (cần bảo vệ bằng semaphore vì dùng I2C)
+    if (xSemaphoreTake(xI2CMutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+        dht20.begin();
+        xSemaphoreGive(xI2CMutex);
+        Serial.println("DHT20 initialized");
+    }
     
     while (1){
         /* code */
+        float temperature = -1;
+        float humidity = -1;
         
-        dht20.read();
-        // Reading temperature in Celsius
-        float temperature = dht20.getTemperature();
-        // Reading humidity
-        float humidity = dht20.getHumidity();
+        // Đọc cảm biến DHT20 (cần bảo vệ vì dùng I2C)
+        if (xSemaphoreTake(xI2CMutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+            dht20.read();
+            temperature = dht20.getTemperature();
+            humidity = dht20.getHumidity();
+            xSemaphoreGive(xI2CMutex);
+        }
 
         
 
@@ -27,36 +38,32 @@ void temp_humi_monitor(void *pvParameters){
             temperature = humidity =  -1;
             //return;
         }
-        String jsonString = "";
-        //Update global variables for temperature and humidity
+        // ✅ TỐI ƯU: Chỉ giữ mutex khi ghi biến global
         if (xSemaphoreTake(xMutex, pdMS_TO_TICKS(100)) == pdTRUE) 
         {
-            // Ghi vào biến global
             glob_temperature = temperature;
             glob_humidity = humidity;
-
-            // Tạo chuỗi JSON để gửi đi
-            StaticJsonDocument<128> doc;
-            doc["type"] = "sensor"; // Thêm 1 "type" để JS biết đây là gói tin gì
-            doc["temperature"] = glob_temperature;
-            doc["humidity"] = glob_humidity;
-            serializeJson(doc, jsonString);
-            
-            // "Mở khóa"
-            xSemaphoreGive(xMutex);
+            xSemaphoreGive(xMutex);  // Unlock ngay sau khi ghi xong
         }
+        
+        // ✅ TỐI ƯU: Tạo JSON bên ngoài mutex (dùng biến local)
+        String jsonString = "";
+        StaticJsonDocument<128> doc;
+        doc["type"] = "sensor";
+        doc["temperature"] = temperature;  // Dùng local variable
+        doc["humidity"] = humidity;
+        serializeJson(doc, jsonString);
         if (jsonString.length() > 0) {
             Webserver_sendata(jsonString); // Gọi hàm từ task_webserver.cpp
         }
         // Print the results
-        
-        Serial.print("Humidity: ");
+        Serial.print("[DHT20] Humidity: ");
         Serial.print(humidity);
         Serial.print("%  Temperature: ");
         Serial.print(temperature);
         Serial.println("°C");
         
-        vTaskDelay(5000);
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
     
 }

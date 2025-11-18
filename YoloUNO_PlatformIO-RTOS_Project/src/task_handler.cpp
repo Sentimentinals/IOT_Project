@@ -58,4 +58,22 @@ void handleWebSocketMessage(String message)
         String msg = "{\"status\":\"ok\",\"page\":\"setting_saved\"}";
         ws.textAll(msg);
     }
+    else if (doc["page"] == "neoled")
+    {
+        // Điều khiển NeoPixel LED
+        bool enabled = doc["value"]["enabled"].as<bool>();
+        
+        Serial.printf("💡 NeoLED Control: %s\n", enabled ? "BẬT" : "TẮT");
+        
+        // Cập nhật biến global (có bảo vệ mutex)
+        if (xSemaphoreTake(xMutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+        {
+            glob_neoled_enabled = enabled;
+            xSemaphoreGive(xMutex);
+        }
+        
+        // Phản hồi lại client
+        String msg = "{\"status\":\"ok\",\"page\":\"neoled\",\"enabled\":" + String(enabled ? "true" : "false") + "}";
+        ws.textAll(msg);
+    }
 }

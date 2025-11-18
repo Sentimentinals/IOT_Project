@@ -19,4 +19,10 @@ extern boolean isWifiConnected;
 extern SemaphoreHandle_t xBinarySemaphoreInternet;
 
 extern SemaphoreHandle_t xMutex;
+extern SemaphoreHandle_t xI2CMutex; // Semaphore cho I2C bus
+
+// Điều khiển NeoPixel LED
+extern bool glob_neoled_enabled;
+extern bool glob_ntp_synced; // Đánh dấu đã đồng bộ NTP
+
 #endif

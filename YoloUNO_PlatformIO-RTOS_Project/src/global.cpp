@@ -15,3 +15,8 @@ String wifi_password = "123456789";
 boolean isWifiConnected = false;
 SemaphoreHandle_t xBinarySemaphoreInternet = xSemaphoreCreateBinary();
 SemaphoreHandle_t xMutex = xSemaphoreCreateMutex();
+SemaphoreHandle_t xI2CMutex = xSemaphoreCreateMutex(); // Mutex cho I2C bus
+
+// Điều khiển NeoPixel LED (mặc định BẬT)
+bool glob_neoled_enabled = true;
+bool glob_ntp_synced = false;

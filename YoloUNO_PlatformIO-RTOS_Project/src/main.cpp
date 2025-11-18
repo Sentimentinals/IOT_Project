@@ -1,8 +1,11 @@
 #include "global.h"
+#include <Wire.h>
 
 #include "led_blinky.h"
 #include "neo_blinky.h"
 #include "temp_humi_monitor.h"
+#include "temp_humi_oled.h"
+#include "temp_humi_csv.h"
 // #include "mainserver.h"
 // #include "tinyml.h"
 // #include "coreiot.h"
@@ -17,12 +20,18 @@
 void setup()
 {
   Serial.begin(115200);
+  
+  // Khởi tạo I2C bus MỘT LẦN duy nhất (GPIO 11=SDA, 12=SCL)
+  Wire.begin(11, 12);
+  Serial.println("I2C Bus initialized on SDA=11, SCL=12");
+  
   check_info_File(0);
   startAP();
   xTaskCreate(led_blinky, "Task LED Blink", 2048, NULL, 2, NULL);
   xTaskCreate(neo_blinky, "Task NEO Blink", 2048, NULL, 2, NULL);
-  //xTaskCreate(temp_humi_monitor, "Task TEMP HUMI Monitor", 2048, NULL, 2, NULL);
-  xTaskCreate(temp_humi_oled, "Task TEMP HUMI OLED", 4096, NULL, 2, NULL);
+  //xTaskCreate(temp_humi_monitor, "Task TEMP HUMI Monitor", 4096, NULL, 2, NULL); // DHT20 - Không sử dụng
+  xTaskCreate(temp_humi_oled, "Task TEMP HUMI OLED", 4096, NULL, 2, NULL); // DHT11 - Đang sử dụng
+  xTaskCreate(temp_humi_csv, "Task CSV Logger", 4096, NULL, 1, NULL); // Ghi CSV - Priority thấp hơn
 
   //xTaskCreate(main_server_task, "Task Main Server" ,8192  ,NULL  ,2 , NULL);
   // xTaskCreate( tiny_ml_task, "Tiny ML Task" ,2048  ,NULL  ,2 , NULL);

@@ -52,6 +52,34 @@
             <span class="unit">%</span>
           </div>
         </div>
+
+        <div class="gauge-card">
+          <h2>💡 LED NeoPixel</h2>
+          <div class="value-display">
+            <button id="neoLedBtn" class="toggle-btn on" onclick="toggleNeoLED()">
+              BẬT
+            </button>
+          </div>
+          <p style="font-size: 0.9rem; opacity: 0.7; margin-top: 10px;">
+            Đèn LED báo ngưỡng nhiệt độ
+          </p>
+        </div>
+      </div>
+
+      <!-- CSV DATA CONTROLS -->
+      <div style="margin-top: 30px;">
+        <h2 style="font-size: 1.3rem; margin-bottom: 15px;">📊 Dữ liệu CSV</h2>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+          <button class="csv-btn download-btn" onclick="downloadCSV()">
+            📥 Tải xuống CSV
+          </button>
+          <button class="csv-btn clear-btn" onclick="clearCSV()">
+            🗑️ Xóa dữ liệu
+          </button>
+          <div id="csvInfo" style="padding: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; font-size: 0.9rem;">
+            <span id="csvStatus">Đang tải thông tin...</span>
+          </div>
+        </div>
       </div>
     </div>
 
