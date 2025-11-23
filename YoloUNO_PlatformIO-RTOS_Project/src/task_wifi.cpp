@@ -40,7 +40,7 @@ static void syncTimeWithNTP()
 
 void startAP()
 {
-    WiFi.mode(WIFI_AP);
+    WiFi.mode(WIFI_AP_STA);  // Changed to dual mode
     WiFi.softAP(String(SSID_AP), String(PASS_AP));
     Serial.print("AP IP: ");
     Serial.println(WiFi.softAPIP());
@@ -53,7 +53,7 @@ void startSTA()
         vTaskDelete(NULL);
     }
 
-    WiFi.mode(WIFI_STA);
+    WiFi.mode(WIFI_AP_STA);  // Changed to dual mode
 
     if (WIFI_PASS.isEmpty())
     {
@@ -64,13 +64,34 @@ void startSTA()
         WiFi.begin(WIFI_SSID.c_str(), WIFI_PASS.c_str());
     }
 
-    while (WiFi.status() != WL_CONNECTED)
+    // Keep AP running while connecting to WiFi
+    WiFi.softAP(String(SSID_AP), String(PASS_AP));
+    
+    Serial.println("🌐 Connecting to WiFi...");
+    int timeout = 30;  // 30 second timeout
+    while (WiFi.status() != WL_CONNECTED && timeout > 0)
     {
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        Serial.print(".");
+        timeout--;
     }
-    //Give a semaphore here
-    xSemaphoreGive(xBinarySemaphoreInternet);
-    syncTimeWithNTP();
+    
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        Serial.println("\n✅ WiFi Connected!");
+        Serial.print("📍 STA IP: ");
+        Serial.println(WiFi.localIP());
+        Serial.print("📍 AP IP: ");
+        Serial.println(WiFi.softAPIP());
+        //Give a semaphore here
+        xSemaphoreGive(xBinarySemaphoreInternet);
+        syncTimeWithNTP();
+    }
+    else
+    {
+        Serial.println("\n❌ WiFi Connection Failed!");
+        Serial.println("⚠️ AP Mode still active at " + WiFi.softAPIP().toString());
+    }
 }
 
 bool Wifi_reconnect()
