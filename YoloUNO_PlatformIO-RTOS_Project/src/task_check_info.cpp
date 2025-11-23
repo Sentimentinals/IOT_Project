@@ -19,7 +19,7 @@ void Load_info_File()
     WIFI_PASS = strdup(doc["WIFI_PASS"]);
     CORE_IOT_TOKEN = strdup(doc["CORE_IOT_TOKEN"]);
     CORE_IOT_SERVER = strdup(doc["CORE_IOT_SERVER"]);
-    CORE_IOT_PORT = strdup(doc["CORE_IOT_PORT"]);
+    CORE_IOT_PORT = doc["CORE_IOT_PORT"].as<int>();  // Parse as int, not String
   }
   file.close();
 }
@@ -33,7 +33,7 @@ void Delete_info_File()
   ESP.restart();
 }
 
-void Save_info_File(String wifi_ssid, String wifi_pass, String CORE_IOT_TOKEN, String CORE_IOT_SERVER, String CORE_IOT_PORT)
+void Save_info_File(String wifi_ssid, String wifi_pass, String core_iot_token, String core_iot_server, String core_iot_port)
 {
   Serial.println(wifi_ssid);
   Serial.println(wifi_pass);
@@ -41,9 +41,9 @@ void Save_info_File(String wifi_ssid, String wifi_pass, String CORE_IOT_TOKEN, S
   DynamicJsonDocument doc(4096);
   doc["WIFI_SSID"] = wifi_ssid;
   doc["WIFI_PASS"] = wifi_pass;
-  doc["CORE_IOT_TOKEN"] = CORE_IOT_TOKEN;
-  doc["CORE_IOT_SERVER"] = CORE_IOT_SERVER;
-  doc["CORE_IOT_PORT"] = CORE_IOT_PORT;
+  doc["CORE_IOT_TOKEN"] = core_iot_token;
+  doc["CORE_IOT_SERVER"] = core_iot_server;
+  doc["CORE_IOT_PORT"] = core_iot_port.toInt();  // Save as int
 
   File configFile = LittleFS.open("/info.dat", "w");
   if (configFile)

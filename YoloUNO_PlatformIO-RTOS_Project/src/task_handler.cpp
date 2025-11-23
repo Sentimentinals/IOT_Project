@@ -76,4 +76,26 @@ void handleWebSocketMessage(String message)
         String msg = "{\"status\":\"ok\",\"page\":\"neoled\",\"enabled\":" + String(enabled ? "true" : "false") + "}";
         ws.textAll(msg);
     }
+    else if (doc["page"] == "fan_control")
+    {
+        // Điều khiển quạt (Fan control)
+        bool enabled = doc["value"]["enabled"].as<bool>();
+        
+        Serial.printf("🌀 Fan Control: %s\n", enabled ? "BẬT" : "TẮT");
+        
+        // Cài đặt GPIO làm output và điều khiển
+        pinMode(2, OUTPUT);  // GPIO9 for fan (changed from GPIO10 to avoid conflict with flame sensor)
+        digitalWrite(2, enabled ? HIGH : LOW);
+        
+        // Cập nhật biến global (có bảo vệ mutex)
+        if (xSemaphoreTake(xMutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+        {
+            glob_fan_enabled = enabled;
+            xSemaphoreGive(xMutex);
+        }
+        
+        // Phản hồi lại client
+        String msg = "{\"status\":\"ok\",\"page\":\"fan_control\",\"enabled\":" + String(enabled ? "true" : "false") + "}";
+        ws.textAll(msg);
+    }
 }

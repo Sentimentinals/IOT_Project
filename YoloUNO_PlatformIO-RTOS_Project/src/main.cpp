@@ -6,6 +6,12 @@
 #include "temp_humi_monitor.h"
 #include "temp_humi_oled.h"
 #include "temp_humi_csv.h"
+
+// New sensor tasks
+#include "sensor_light.h"
+#include "sensor_moisture.h"
+#include "sensor_flame.h"
+
 // #include "mainserver.h"
 // #include "tinyml.h"
 // #include "coreiot.h"
@@ -33,9 +39,16 @@ void setup()
   xTaskCreate(temp_humi_oled, "Task TEMP HUMI OLED", 4096, NULL, 2, NULL); // DHT11 - Đang sử dụng
   xTaskCreate(temp_humi_csv, "Task CSV Logger", 4096, NULL, 1, NULL); // Ghi CSV - Priority thấp hơn
 
+  // New sensor tasks
+  xTaskCreate(sensor_light_task, "Light Sensor", 2048, NULL, 2, NULL);
+  xTaskCreate(sensor_moisture_task, "Soil Moisture", 2048, NULL, 2, NULL);
+  xTaskCreate(sensor_flame_task, "Flame Sensor", 2048, NULL, 3, NULL); // Higher priority for safety
+
+  // CoreIOT Cloud Publishing
+  xTaskCreate(CORE_IOT_task, "CoreIOT Task", 4096, NULL, 2, NULL);
+
   //xTaskCreate(main_server_task, "Task Main Server" ,8192  ,NULL  ,2 , NULL);
   // xTaskCreate( tiny_ml_task, "Tiny ML Task" ,2048  ,NULL  ,2 , NULL);
-  //xTaskCreate(coreiot_task, "CoreIOT Task" ,4096  ,NULL  ,2 , NULL);
   // xTaskCreate(Task_Toogle_BOOT, "Task_Toogle_BOOT", 4096, NULL, 2, NULL);
   
 }

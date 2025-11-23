@@ -6,6 +6,15 @@
 #include "global.h"
 #include "task_wifi.h"
 
+// Access Point Configuration
+#ifndef SSID_AP
+#define SSID_AP "TaiHieuTien"
+#endif
+
+#ifndef PASS_AP
+#define PASS_AP "12345678"
+#endif
+
 
 bool check_info_File(bool check);
 void Load_info_File();
