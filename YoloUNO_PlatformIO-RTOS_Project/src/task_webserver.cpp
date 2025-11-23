@@ -98,6 +98,31 @@ void connnectWSV()
                       request->send(500, "text/plain", "❌ Lỗi xóa file!");
                   }
               });
+
+    // 📟 Endpoint thông tin hệ thống
+    server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                  String json = "{";
+                  
+                  // System info
+                  json += "\"chipModel\":\"" + String(ESP.getChipModel()) + "\",";
+                  json += "\"freeHeap\":" + String(ESP.getFreeHeap()) + ",";
+                  json += "\"uptime\":" + String(millis() / 1000) + ",";
+                  
+                  // WiFi info
+                  if (WiFi.status() == WL_CONNECTED) {
+                      json += "\"wifiSSID\":\"" + WiFi.SSID() + "\",";
+                      json += "\"ipAddress\":\"" + WiFi.localIP().toString() + "\",";
+                      json += "\"wifiSignal\":" + String(WiFi.RSSI());
+                  } else {
+                      json += "\"wifiSSID\":\"Not Connected\",";
+                      json += "\"ipAddress\":\"" + WiFi.softAPIP().toString() + " (AP)\",";
+                      json += "\"wifiSignal\":0";
+                  }
+                  
+                  json += "}";
+                  request->send(200, "application/json", json);
+              });
     
     server.begin();
     ElegantOTA.begin(&server);
