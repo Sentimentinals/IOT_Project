@@ -79,191 +79,172 @@
 
         <div class="overview-metric">
           <div class="metric-icon">💚</div>
-          <div class="metric-content">
-            <div class="metric-value" id="systemHealth">98%</div>
-            <div class="metric-label">System Health</div>
-          </div>
-        </div>
-
-        <div class="overview-metric">
-          <div class="metric-icon">⏱️</div>
-          <div class="metric-content">
-            <div class="metric-value" id="uptime">--</div>
-            <div class="metric-label">Uptime</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ENVIRONMENT STATUS BADGE -->
-      <div class="environment-status">
-        <span class="status-badge status-optimal" id="envStatus">
-          <span class="status-dot"></span>
           Optimal Environment
-        </span>
-      </div>
+          </span>
+        </div>
 
-      <!-- HERO + SENSOR GRID -->
-      <div class="dashboard-grid">
-        <!-- HERO CARD: Temperature & Humidity -->
-        <div class="hero-card">
-          <h2>🌡️ Climate Monitor</h2>
-          <div class="hero-readings">
-            <div class="hero-metric">
-              <div class="hero-value">
-                <span id="temp" class="value">--</span>
-                <span class="unit">°C</span>
+        <!-- HERO + SENSOR GRID -->
+        <div class="dashboard-grid">
+          <!-- HERO CARD: Temperature & Humidity -->
+          <div class="hero-card">
+            <h2>🌡️ Climate Monitor</h2>
+            <div class="hero-readings">
+              <div class="hero-metric">
+                <div class="hero-value">
+                  <span id="temp" class="value">--</span>
+                  <span class="unit">°C</span>
+                </div>
+                <div class="metric-label">Temperature</div>
+                <div class="status-badge" id="tempStatus">--</div>
               </div>
-              <div class="metric-label">Temperature</div>
-              <div class="status-badge" id="tempStatus">--</div>
+              <div class="hero-divider"></div>
+              <div class="hero-metric">
+                <div class="hero-value">
+                  <span id="hum" class="value">--</span>
+                  <span class="unit">%</span>
+                </div>
+                <div class="metric-label">Humidity</div>
+                <div class="status-badge" id="humStatus">--</div>
+              </div>
+              </button>
+              <p class="card-hint">Auto at 28°C</p>
             </div>
-            <div class="hero-divider"></div>
-            <div class="hero-metric">
-              <div class="hero-value">
-                <span id="hum" class="value">--</span>
+
+            <div class="compact-card">
+              <h3>☀️ Light</h3>
+              <div class="compact-value">
+                <span id="light" class="value">--</span>
+                <span class="unit">Lux</span>
+              </div>
+            </div>
+
+            <div class="compact-card">
+              <h3>💧 Soil Moisture</h3>
+              <div class="compact-value">
+                <span id="moisture" class="value">--</span>
                 <span class="unit">%</span>
               </div>
-              <div class="metric-label">Humidity</div>
-              <div class="status-badge" id="humStatus">--</div>
             </div>
+
+            <div class="compact-card flame-card" id="flameCard">
+              <h3>🔥 Flame Sensor</h3>
+              <div class="flame-status" id="flame">
+                <span class="flame-icon">✓</span>
+                <span class="flame-text">Safe</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CSV DATA CONTROLS -->
+        <div class="data-controls">
+          <h3>📊 Data Export</h3>
+          <div class="controls-row">
+            <button class="csv-btn download-btn" onclick="downloadCSV()">
+              📥 Download CSV
             </button>
-            <p class="card-hint">Auto at 28°C</p>
-          </div>
-
-          <div class="compact-card">
-            <h3>☀️ Light</h3>
-            <div class="compact-value">
-              <span id="light" class="value">--</span>
-              <span class="unit">Lux</span>
-            </div>
-          </div>
-
-          <div class="compact-card">
-            <h3>💧 Soil Moisture</h3>
-            <div class="compact-value">
-              <span id="moisture" class="value">--</span>
-              <span class="unit">%</span>
-            </div>
-          </div>
-
-          <div class="compact-card flame-card" id="flameCard">
-            <h3>🔥 Flame Sensor</h3>
-            <div class="flame-status" id="flame">
-              <span class="flame-icon">✓</span>
-              <span class="flame-text">Safe</span>
+            <button class="csv-btn clear-btn" onclick="clearCSV()">
+              🗑️ Clear Data
+            </button>
+            <div id="csvInfo" class="csv-info">
+              <span id="csvStatus">Loading...</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- CSV DATA CONTROLS -->
-      <div class="data-controls">
-        <h3>📊 Data Export</h3>
-        <div class="controls-row">
-          <button class="csv-btn download-btn" onclick="downloadCSV()">
-            📥 Download CSV
-          </button>
-          <button class="csv-btn clear-btn" onclick="clearCSV()">
-            🗑️ Clear Data
-          </button>
-          <div id="csvInfo" class="csv-info">
-            <span id="csvStatus">Loading...</span>
-          </div>
+      <!-- DEVICES -->
+      <div id="device" class="section" style="display:none;">
+        <header>
+          <h1>Relay Control</h1>
+          <p>Manage and control connected relays.</p>
+        </header>
+
+        <div class="device-list" id="relayContainer"></div>
+
+        <button class="add-relay-btn" onclick="openAddRelayDialog()">
+          ➕
+        </button>
+      </div>
+
+      <!-- INFO -->
+      <div id="info" class="section" style="display:none;">
+        <header>
+          <h1>Device Information</h1>
+          <p>System and firmware details will be displayed here.</p>
+        </header>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="settings" class="section settings-section" style="display:none;">
+        <div class="settings-card">
+          <h2>⚙️ Device Configuration</h2>
+          <p>Enter your Wi-Fi and Core IoT connection information below.</p>
+
+          <form id="settingsForm">
+            <div class="input-group">
+              <span class="input-icon">📶</span>
+              <input type="text" id="ssid" placeholder="Wi-Fi Name (SSID)" required>
+            </div>
+
+            <div class="input-group">
+              <span class="input-icon">🔒</span>
+              <input type="password" id="password" placeholder="Wi-Fi Password" required>
+            </div>
+
+            <div class="input-group">
+              <span class="input-icon">🔑</span>
+              <input type="text" id="token" placeholder="Core IoT Token" required>
+            </div>
+
+            <div class="input-group">
+              <span class="input-icon">🌐</span>
+              <input type="text" id="server" placeholder="Core IoT Server" required>
+            </div>
+
+            <div class="input-group">
+              <span class="input-icon">🔌</span>
+              <input type="number" id="port" placeholder="Core IoT Port" required>
+            </div>
+
+            <button type="submit" class="btn-save">
+              💾 Save Configuration
+            </button>
+          </form>
         </div>
       </div>
     </div>
 
-    <!-- DEVICES -->
-    <div id="device" class="section" style="display:none;">
-      <header>
-        <h1>Relay Control</h1>
-        <p>Manage and control connected relays.</p>
-      </header>
-
-      <div class="device-list" id="relayContainer"></div>
-
-      <button class="add-relay-btn" onclick="openAddRelayDialog()">
-        ➕
-      </button>
-    </div>
-
-    <!-- INFO -->
-    <div id="info" class="section" style="display:none;">
-      <header>
-        <h1>Device Information</h1>
-        <p>System and firmware details will be displayed here.</p>
-      </header>
-    </div>
-
-    <!-- SETTINGS -->
-    <div id="settings" class="section settings-section" style="display:none;">
-      <div class="settings-card">
-        <h2>⚙️ Device Configuration</h2>
-        <p>Enter your Wi-Fi and Core IoT connection information below.</p>
-
-        <form id="settingsForm">
-          <div class="input-group">
-            <span class="input-icon">📶</span>
-            <input type="text" id="ssid" placeholder="Wi-Fi Name (SSID)" required>
-          </div>
-
-          <div class="input-group">
-            <span class="input-icon">🔒</span>
-            <input type="password" id="password" placeholder="Wi-Fi Password" required>
-          </div>
-
-          <div class="input-group">
-            <span class="input-icon">🔑</span>
-            <input type="text" id="token" placeholder="Core IoT Token" required>
-          </div>
-
-          <div class="input-group">
-            <span class="input-icon">🌐</span>
-            <input type="text" id="server" placeholder="Core IoT Server" required>
-          </div>
-
-          <div class="input-group">
-            <span class="input-icon">🔌</span>
-            <input type="number" id="port" placeholder="Core IoT Port" required>
-          </div>
-
-          <button type="submit" class="btn-save">
-            💾 Save Configuration
-          </button>
-        </form>
+    <!-- DIALOGS -->
+    <div id="addRelayDialog" class="dialog-overlay" style="display:none;">
+      <div class="dialog fade-in">
+        <h3>🔌 Thêm relay mới</h3>
+        <p>Nhập tên relay và chân GPIO</p>
+        <div class="input-field">
+          <input type="text" id="relayName" placeholder="Tên relay">
+        </div>
+        <div class="input-field">
+          <input type="number" id="relayGPIO" placeholder="Chân GPIO">
+        </div>
+        <div class="dialog-buttons">
+          <button class="confirm" onclick="saveRelay()">Lưu</button>
+          <button class="cancel" onclick="closeAddRelayDialog()">Hủy</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- DIALOGS -->
-  <div id="addRelayDialog" class="dialog-overlay" style="display:none;">
-    <div class="dialog fade-in">
-      <h3>🔌 Thêm relay mới</h3>
-      <p>Nhập tên relay và chân GPIO</p>
-      <div class="input-field">
-        <input type="text" id="relayName" placeholder="Tên relay">
-      </div>
-      <div class="input-field">
-        <input type="number" id="relayGPIO" placeholder="Chân GPIO">
-      </div>
-      <div class="dialog-buttons">
-        <button class="confirm" onclick="saveRelay()">Lưu</button>
-        <button class="cancel" onclick="closeAddRelayDialog()">Hủy</button>
+    <div id="confirmDeleteDialog" class="dialog-overlay" style="display:none;">
+      <div class="dialog warning fade-in">
+        <h3>⚠️ Xác nhận xóa</h3>
+        <p>Bạn có chắc chắn muốn xóa relay này không?</p>
+        <div class="dialog-buttons">
+          <button class="danger" onclick="confirmDelete()">Xóa</button>
+          <button class="cancel" onclick="closeConfirmDelete()">Hủy</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div id="confirmDeleteDialog" class="dialog-overlay" style="display:none;">
-    <div class="dialog warning fade-in">
-      <h3>⚠️ Xác nhận xóa</h3>
-      <p>Bạn có chắc chắn muốn xóa relay này không?</p>
-      <div class="dialog-buttons">
-        <button class="danger" onclick="confirmDelete()">Xóa</button>
-        <button class="cancel" onclick="closeConfirmDelete()">Hủy</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 
 </html>
