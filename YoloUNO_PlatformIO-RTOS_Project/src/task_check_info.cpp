@@ -56,28 +56,33 @@ void Save_info_File(String wifi_ssid, String wifi_pass, String core_iot_token, S
     Serial.println("Unable to save the configuration.");
   }
   ESP.restart();
-};
+}
 
 bool check_info_File(bool check)
 {
   if (!check)
   {
-    Load_info_File();
+    // Initialize LittleFS first
     if (!LittleFS.begin(true))
     {
       Serial.println("❌ Lỗi khởi động LittleFS!");
       return false;
     }
     
+    // Load saved config if exists
+    Load_info_File();
+    
+    // ALWAYS start AP for webserver access
+    startAP();
   }
   
-  if (WIFI_SSID.isEmpty() && WIFI_PASS.isEmpty())
+  // If WiFi credentials exist, also connect to home WiFi (AP+STA mode)
+  if (!WIFI_SSID.isEmpty() && !WIFI_PASS.isEmpty())
   {
-    if (!check)
-    {
-      startAP();
-    }
-    return false;
+    Serial.println("📡 WiFi credentials found - connecting to home WiFi...");
+    return true;  // Will trigger STA connection
   }
-  return true;
+  
+  Serial.println("ℹ️ No WiFi credentials - AP-only mode");
+  return false;
 }
