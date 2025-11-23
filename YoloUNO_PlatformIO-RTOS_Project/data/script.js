@@ -208,6 +208,20 @@ function showSection(id, event) {
     document.getElementById(id).style.display = id === 'settings' ? 'flex' : 'block';
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     event.currentTarget.classList.add('active');
+
+    // Update Info section when shown
+    if (id === 'info') {
+        updateInfo();
+        // Auto-refresh every 5 seconds
+        if (window.infoInterval) clearInterval(window.infoInterval);
+        window.infoInterval = setInterval(updateInfo, 5000);
+    } else {
+        // Clear interval when leaving Info section
+        if (window.infoInterval) {
+            clearInterval(window.infoInterval);
+            window.infoInterval = null;
+        }
+    }
 }
 
 
@@ -399,3 +413,36 @@ document.getElementById("settingsForm").addEventListener("submit", function (e) 
     Send_Data(settingsJSON);
     alert("✅ Cấu hình đã được gửi đến thiết bị!");
 });
+
+// ==================== INFO SECTION ====================
+function updateInfo() {
+    fetch("/info")
+        .then(response => response.json())
+        .then(data => {
+            // System info
+            document.getElementById("chipModel").textContent = data.chipModel || "ESP32";
+            document.getElementById("freeHeap").textContent = (data.freeHeap / 1024).toFixed(1) + " KB";
+            document.getElementById("systemUptime").textContent = formatUptime(data.uptime);
+
+            // WiFi info
+            document.getElementById("wifiSSID").textContent = data.wifiSSID || "--";
+            document.getElementById("ipAddress").textContent = data.ipAddress || "--";
+            document.getElementById("wifiSignal").textContent = data.wifiSignal ? data.wifiSignal + " dBm" : "--";
+        })
+        .catch(err => console.error("❌ Error fetching info:", err));
+}
+
+function formatUptime(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (days > 0) {
+        return `${days}d ${hours}h ${minutes}m`;
+    } else if (hours > 0) {
+        return `${hours}h ${minutes}m ${secs}s`;
+    } else {
+        return `${minutes}m ${secs}s`;
+    }
+}
