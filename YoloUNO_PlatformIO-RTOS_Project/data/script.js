@@ -146,8 +146,6 @@ function onMessage(event) {
             if (humEl && data.humidity !== undefined) {
                 humEl.innerHTML = parseFloat(data.humidity).toFixed(1);
             }
-
-            // New sensors
             if (data.light !== undefined) {
                 const lightEl = document.getElementById("light");
                 if (lightEl) lightEl.innerHTML = Math.round(data.light);  // Show as integer Lux
@@ -180,6 +178,35 @@ function onMessage(event) {
                         // REMOVE FULL DASHBOARD ALERT
                         document.body.classList.remove('emergency-alert');
                     }
+                }
+            }
+            // WiFi Status notifications
+            if (data.wifiStatus !== undefined) {
+                if (data.wifiStatus === 'connected') {
+                    addNotification(
+                        'wifi',
+                        'WiFi Connected',
+                        `Connected to ${data.ssid || 'network'}. IP: ${data.ip || '--'}`
+                    );
+                } else if (data.wifiStatus === 'failed') {
+                    addNotification(
+                        'wifi',
+                        'WiFi Failed',
+                        'Failed to connect to WiFi. AP mode still active at 192.168.4.1'
+                    );
+                } else if (data.wifiStatus === 'connecting') {
+                    addNotification(
+                        'wifi',
+                        'WiFi Connecting',
+                        `Attempting to connect to ${data.ssid || 'network'}...`
+                    );
+                } else if (data.wifiStatus === 'ap_mode') {
+                    addNotification(
+                        'info',
+                        '📶 Access Point Mode',
+                        `Device running in AP mode. IP: ${data.ip || '192.168.4.1'}`,
+                        '📶'
+                    );
                 }
             }
 
@@ -311,7 +338,7 @@ function toggleNeoLED() {
     });
 
     Send_Data(ledJSON);
-    console.log("💡 NeoLED:", neoLedState ? "BẬT" : "TẮT");
+    console.log("💡 NeoLED:", neoLedState ? "On" : "Off");
 }
 
 
@@ -341,18 +368,18 @@ function toggleFan() {
     });
 
     Send_Data(fanJSON);
-    console.log("🌀 Fan:", fanState ? "BẬT" : "TẮT");
+    console.log("🌀 Fan:", fanState ? "On" : "Off");
 }
 
 
 // ==================== CSV CONTROLS ====================
 function downloadCSV() {
-    console.log("📥 Đang tải file CSV...");
+    console.log("📥 Downloading CSV file...");
     window.location.href = "/download";
 }
 
 function clearCSV() {
-    if (confirm("⚠️ Bạn có chắc muốn xóa toàn bộ dữ liệu CSV?")) {
+    if (confirm("Do you sure want to delete all CSV data?")) {
         fetch("/clear")
             .then(response => response.text())
             .then(data => {
@@ -392,13 +419,11 @@ setTimeout(updateCSVInfo, 2000);
 // ==================== SETTINGS FORM (BỔ SUNG) ====================
 document.getElementById("settingsForm").addEventListener("submit", function (e) {
     e.preventDefault();
-
     const ssid = document.getElementById("ssid").value.trim();
     const password = document.getElementById("password").value.trim();
     const token = document.getElementById("token").value.trim();
     const server = document.getElementById("server").value.trim();
     const port = document.getElementById("port").value.trim();
-
     const settingsJSON = JSON.stringify({
         page: "setting",
         value: {
@@ -409,9 +434,16 @@ document.getElementById("settingsForm").addEventListener("submit", function (e) 
             port: port
         }
     });
-
     Send_Data(settingsJSON);
-    alert("✅ Cấu hình đã được gửi đến thiết bị!");
+
+    // Add notification
+    addNotification(
+        'wifi',
+        'WiFi Connecting',
+        `Attempting to connect to ${ssid}...`
+    );
+
+    alert("✅ Configuration sent! Device will restart and connect to WiFi.");
 });
 
 // ==================== INFO SECTION ====================
@@ -420,7 +452,7 @@ function updateInfo() {
         .then(response => response.json())
         .then(data => {
             // System info
-            document.getElementById("chipModel").textContent = data.chipModel || "ESP32";
+            document.getElementById("chipModel").textContent = data.chipModel || "Yolo UNO";
             document.getElementById("freeHeap").textContent = (data.freeHeap / 1024).toFixed(1) + " KB";
             document.getElementById("systemUptime").textContent = formatUptime(data.uptime);
 
@@ -446,3 +478,333 @@ function formatUptime(seconds) {
         return `${minutes}m ${secs}s`;
     }
 }
+// ==================== FLAME ALERT SYSTEM ====================
+let flameAlertActive = false;
+let alertCount = 0;
+let alertHistory = [];
+// Show fire notification
+function showFireNotification(message = "🔥 FIRE DETECTED! Take immediate action!") {
+    // Remove existing notification if any
+    dismissFireNotification();
+
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = 'fire-notification';
+    notification.id = 'fireNotification';
+    notification.innerHTML = `
+        <div class="fire-notification-icon">🔥</div>
+        <div class="fire-notification-content">
+            <div class="fire-notification-title">⚠️ FIRE ALERT!</div>
+            <div class="fire-notification-message">${message}</div>
+        </div>
+        <button class="fire-notification-close" onclick="dismissFireNotification()">×</button>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Play alert sound (optional)
+    playAlertSound();
+
+    // Log alert
+    logAlert();
+
+    // Auto-dismiss after 10 seconds (optional)
+    // setTimeout(dismissFireNotification, 10000);
+}
+// Dismiss fire notification
+function dismissFireNotification() {
+    const notification = document.getElementById('fireNotification');
+    if (notification) {
+        notification.style.animation = 'slideInRight 0.3s reverse';
+        setTimeout(() => notification.remove(), 300);
+    }
+}
+// Play alert sound (browser beep)
+function playAlertSound() {
+    try {
+        // Create audio context for beep sound
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.value = 800; // Frequency in Hz
+        oscillator.type = 'sine';
+
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (e) {
+        console.warn("Audio not supported:", e);
+    }
+}
+// Log alert to history
+function logAlert() {
+    alertCount++;
+    const timestamp = new Date().toLocaleString();
+    alertHistory.push({
+        id: alertCount,
+        timestamp: timestamp,
+        message: "Fire detected"
+    });
+
+    // Update alert counter badge (if exists)
+    updateAlertBadge();
+
+    console.log(`🔥 Alert #${alertCount} logged at ${timestamp}`);
+}
+// Update alert counter badge
+function updateAlertBadge() {
+    const alertsTodayEl = document.getElementById('alertsToday');
+    if (alertsTodayEl) {
+        alertsTodayEl.textContent = alertCount;
+    }
+}
+if (data.flame !== undefined) {
+    const flameEl = document.getElementById("flame");
+    const flameCard = flameEl?.closest('.compact-card');
+
+    if (flameEl) {
+        if (data.flame === true) {
+            // Fire detected!
+            flameEl.innerHTML = "FIRE!";
+
+            // Add alert class to card
+            if (flameCard) {
+                flameCard.classList.add('flame-alert');
+                flameCard.classList.remove('flame-safe');
+            }
+
+            // Trigger full page red blinking
+            document.body.classList.add('emergency-alert');
+
+            // Show notification (only once per alert)
+            if (!flameAlertActive) {
+                flameAlertActive = true;
+                showFireNotification("🔥 FIRE DETECTED! Check flame sensor immediately!");
+            }
+        } else {
+            // Fire cleared
+            flameEl.innerHTML = "Safe";
+
+            // Remove alert class
+            if (flameCard) {
+                flameCard.classList.add('flame-safe');
+                flameCard.classList.remove('flame-alert');
+            }
+
+            // Remove full page blinking
+            document.body.classList.remove('emergency-alert');
+
+            // Reset alert flag
+            if (flameAlertActive) {
+                flameAlertActive = false;
+                // Optional: Auto-dismiss notification when safe
+                // dismissFireNotification();
+            }
+        }
+    }
+}
+let notifications = [];
+let notificationIdCounter = 0;
+function saveNotifications() {
+    try {
+        const data = {
+            notifications: notifications.slice(0, 100), // Limit to 100
+            counter: notificationIdCounter,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('iot_notifications', JSON.stringify(data));
+        console.log(`💾 Saved ${notifications.length} notifications`);
+    } catch (e) {
+        console.warn('Failed to save notifications:', e);
+        // If storage full, clear old data
+        if (e.name === 'QuotaExceededError') {
+            localStorage.removeItem('iot_notifications');
+            console.log(' Cleared old notifications due to quota');
+        }
+    }
+}
+// Load notifications from localStorage
+function loadNotifications() {
+    try {
+        const saved = localStorage.getItem('iot_notifications');
+        if (!saved) {
+            console.log('📭 No saved notifications found');
+            return;
+        }
+
+        const data = JSON.parse(saved);
+
+        // Check if data is not too old (7 days)
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        if (data.timestamp && (Date.now() - data.timestamp > sevenDays)) {
+            console.log('Notifications too old, clearing...');
+            localStorage.removeItem('iot_notifications');
+            return;
+        }
+
+        // Restore notifications
+        if (Array.isArray(data.notifications)) {
+            // Convert timestamp strings back to Date objects
+            notifications = data.notifications.map(n => ({
+                ...n,
+                timestamp: new Date(n.timestamp)
+            }));
+            notificationIdCounter = data.counter || 0;
+
+            console.log(`📥 Loaded ${notifications.length} notifications`);
+
+            // Update UI
+            updateNotificationUI();
+            updateNotificationBadge();
+        }
+    } catch (e) {
+        console.warn('Failed to load notifications:', e);
+        // Clear corrupted data
+        localStorage.removeItem('iot_notifications');
+    }
+}
+// Clear all stored notifications
+function clearStoredNotifications() {
+    localStorage.removeItem('iot_notifications');
+    console.log('Cleared stored notifications');
+}
+// Toggle notification panel
+function toggleNotificationPanel() {
+    const panel = document.getElementById('notificationPanel');
+    const isVisible = panel.style.display !== 'none';
+
+    if (isVisible) {
+        panel.style.animation = 'slideDown 0.2s reverse';
+        setTimeout(() => {
+            panel.style.display = 'none';
+        }, 200);
+    } else {
+        panel.style.display = 'block';
+        panel.style.animation = 'slideDown 0.3s ease-out';
+    }
+}
+// Close panel when clicking outside
+document.addEventListener('click', function (event) {
+    const panel = document.getElementById('notificationPanel');
+    const bell = document.querySelector('.notification-bell');
+
+    if (panel && bell && !bell.contains(event.target) && !panel.contains(event.target)) {
+        if (panel.style.display !== 'none') {
+            toggleNotificationPanel();
+        }
+    }
+});
+// Add notification
+function addNotification(type, title, message, icon = '🔔') {
+    const notification = {
+        id: ++notificationIdCounter,
+        type: type,  // 'fire', 'wifi', 'info', 'warning'
+        title: title,
+        message: message,
+        icon: icon,
+        timestamp: new Date()
+    };
+
+    notifications.unshift(notification);  // Add to beginning
+
+    // Limit to 50 notifications
+    if (notifications.length > 50) {
+        notifications = notifications.slice(0, 50);
+    }
+
+    updateNotificationUI();
+    updateNotificationBadge();
+
+    saveNotifications();
+}
+// Update notification badge
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    if (badge) {
+        const count = notifications.length;
+        if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : count;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+// Update notification list UI
+function updateNotificationUI() {
+    const listEl = document.getElementById('notificationList');
+    if (!listEl) return;
+
+    if (notifications.length === 0) {
+        listEl.innerHTML = '<div class="empty-notifications">No notifications yet</div>';
+        return;
+    }
+
+    const html = notifications.map(notif => {
+        const timeAgo = getTimeAgo(notif.timestamp);
+        const typeClass = notif.type || 'info';
+
+        return `
+            <div class="notification-item ${typeClass}" onclick="dismissNotification(${notif.id})">
+                <div class="notification-item-header">
+                    <div class="notification-item-title">
+                        <span>${notif.icon}</span>
+                        <span>${notif.title}</span>
+                    </div>
+                    <div class="notification-item-time">${timeAgo}</div>
+                </div>
+                <div class="notification-item-message">${notif.message}</div>
+            </div>
+        `;
+    }).join('');
+
+    listEl.innerHTML = html;
+}
+// Get time ago string
+function getTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+}
+// Dismiss single notification
+function dismissNotification(id) {
+    notifications = notifications.filter(n => n.id !== id);
+    updateNotificationUI();
+    updateNotificationBadge();
+    saveNotifications();
+}
+// Clear all notifications
+function clearAllNotifications() {
+    if (notifications.length === 0) return;
+
+    if (confirm('Clear all notifications?')) {
+        notifications = [];
+        updateNotificationUI();
+        updateNotificationBadge();
+    }
+    clearStoredNotifications();
+}
+// Auto-refresh time ago every minute
+setInterval(() => {
+    if (notifications.length > 0) {
+        updateNotificationUI();
+    }
+}, 60000);
+window.addEventListener('DOMContentLoaded', function () {
+    console.log('Dashboard loaded, restoring notifications...');
+    loadNotifications();
+});
+window.addEventListener('beforeunload', function () {
+    if (notifications.length > 0) {
+        saveNotifications();
+    }
+});

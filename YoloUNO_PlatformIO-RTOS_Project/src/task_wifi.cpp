@@ -79,18 +79,22 @@ void startSTA()
     if (WiFi.status() == WL_CONNECTED)
     {
         Serial.println("\n✅ WiFi Connected!");
-        Serial.print("📍 STA IP: ");
-        Serial.println(WiFi.localIP());
-        Serial.print("📍 AP IP: ");
-        Serial.println(WiFi.softAPIP());
-        //Give a semaphore here
+        Serial.println("📍 STA IP: " + WiFi.localIP().toString());
+    
+        // Send WiFi status notification to WebSocket clients
+        String wifiNotif = "{\"wifiStatus\":\"connected\",\"ssid\":\"" + WiFi.SSID() + "\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
+        Webserver_sendata(wifiNotif);
+    
         xSemaphoreGive(xBinarySemaphoreInternet);
         syncTimeWithNTP();
     }
     else
     {
-        Serial.println("\n❌ WiFi Connection Failed!");
-        Serial.println("⚠️ AP Mode still active at " + WiFi.softAPIP().toString());
+        Serial.println("\n WiFi Connection Failed!");
+    
+        // Send failure notification
+        String wifiNotif = "{\"wifiStatus\":\"failed\"}";
+        Webserver_sendata(wifiNotif);
     }
 }
 

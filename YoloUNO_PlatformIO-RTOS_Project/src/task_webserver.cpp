@@ -4,7 +4,7 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 bool webserver_isrunning = false;
-
+unsigned long websocket_connect_time = 0;  // Track WebSocket connection time
 void Webserver_sendata(String data)
 {
     if (ws.count() > 0)
@@ -22,10 +22,12 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 {
     if (type == WS_EVT_CONNECT)
     {
+        websocket_connect_time = millis();
         Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
     }
     else if (type == WS_EVT_DISCONNECT)
     {
+        websocket_connect_time = 0;
         Serial.printf("WebSocket client #%u disconnected\n", client->id());
     }
     else if (type == WS_EVT_DATA)
@@ -52,6 +54,8 @@ void connnectWSV()
               { request->send(LittleFS, "/script.js", "application/javascript"); });
     server.on("/styles.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(LittleFS, "/styles.css", "text/css"); });
+    server.on("/coreiot_logo.png", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(LittleFS, "/coreiot_logo.png", "image/png"); });
     
     // 📥 Endpoint download CSV
     server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -107,7 +111,12 @@ void connnectWSV()
                   // System info
                   json += "\"chipModel\":\"" + String(ESP.getChipModel()) + "\",";
                   json += "\"freeHeap\":" + String(ESP.getFreeHeap()) + ",";
-                  json += "\"uptime\":" + String(millis() / 1000) + ",";
+                  unsigned long uptime_seconds = 0;
+                  if (websocket_connect_time > 0)
+                  {
+                      uptime_seconds = (millis() - websocket_connect_time) / 1000;
+                  }
+                  json += "\"uptime\":" + String(uptime_seconds) + ",";
                   
                   // WiFi info
                   if (WiFi.status() == WL_CONNECTED) {
