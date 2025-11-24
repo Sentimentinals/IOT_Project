@@ -1255,12 +1255,13 @@ header p {
 
   0%,
   100% {
-    background-color: transparent;
+    background-color: rgba(139, 0, 0, 0.2);
+    /* Màu đỏ sẫm */
   }
 
   50% {
-    background-color: rgba(239, 68, 68, 0.2);
-    /* Red overlay */
+    background-color: rgba(220, 38, 38, 0.35);
+    /* Màu đỏ nhạt hơn */
   }
 }
 
@@ -1270,9 +1271,26 @@ body.emergency-alert::before {
   position: fixed;
   inset: 0;
   z-index: 9998;
-  background: rgba(239, 68, 68, 0.15);
-  animation: emergencyBlink 1s infinite;
+  background: rgba(139, 0, 0, 0.2);
+  animation: emergencyBlink 1.5s ease-in-out infinite;
   pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.8s ease-out, background 0.8s ease-out;
+}
+
+/* Thêm style cho text để vẫn đọc được khi nhấp nháy */
+body.emergency-alert .main-content {
+  position: relative;
+  z-index: 9999;
+}
+
+body.emergency-alert h1,
+body.emergency-alert h2,
+body.emergency-alert h3,
+body.emergency-alert p,
+body.emergency-alert .value,
+body.emergency-alert .metric-value {
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 0 4px rgba(0, 0, 0, 0.6);
 }
 
 /* Flame card alert animation */
@@ -1634,4 +1652,56 @@ body.emergency-alert::before {
 
 [data-theme="dark"] .notification-item-message {
   color: rgba(255, 255, 255, 0.7);
+}
+
+@keyframes emergencyFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes emergencyFadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+body.emergency-alert::before {
+  animation: emergencyFadeIn 0.5s ease-out, emergencyBlink 1.5s ease-in-out 0.5s infinite;
+}
+
+.compact-card {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.flame-card {
+  transition: background 0.6s ease-out, border 0.6s ease-out, box-shadow 0.6s ease-out;
+}
+
+body.emergency-alert h1,
+body.emergency-alert h2,
+body.emergency-alert h3,
+body.emergency-alert p,
+body.emergency-alert .value,
+body.emergency-alert .metric-value {
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 0 4px rgba(0, 0, 0, 0.6);
+  transition: text-shadow 0.5s ease-out;
+}
+
+body:not(.emergency-alert) h1,
+body:not(.emergency-alert) h2,
+body:not(.emergency-alert) h3,
+body:not(.emergency-alert) p,
+body:not(.emergency-alert) .value,
+body:not(.emergency-alert) .metric-value {
+  text-shadow: none;
+  transition: text-shadow 0.8s ease-out;
 }

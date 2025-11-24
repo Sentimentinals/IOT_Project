@@ -82,6 +82,8 @@ window.addEventListener('load', onLoad);
 function onLoad(event) {
     initTheme();
     initWebSocket();
+    renderRelays();
+    loadNotifications();
 }
 
 function onOpen(event) {
@@ -156,27 +158,58 @@ function onMessage(event) {
             }
             if (data.flame !== undefined) {
                 const flameEl = document.getElementById("flame");
-                const flameCard = flameEl?.closest('.gauge-card');
-
+                const flameCard = document.getElementById('flameCard');
                 if (flameEl) {
                     if (data.flame === true) {
-                        flameEl.innerHTML = "FIRE!";
+                        // Fire detected!
+                        flameEl.innerHTML = '<span class="flame-icon">🔥</span><span class="flame-text">FIRE!</span>';
+
                         // Add alert class to card
                         if (flameCard) {
                             flameCard.classList.add('flame-alert');
                             flameCard.classList.remove('flame-safe');
                         }
-                        // TRIGGER FULL DASHBOARD ALERT
+
+                        // Trigger full page red blinking
                         document.body.classList.add('emergency-alert');
+
+                        // Show notification (only once per alert)
+                        if (!flameAlertActive) {
+                            flameAlertActive = true;
+
+                            // Update alert counter
+                            alertCount++;
+                            updateAlertBadge();
+
+                            // Add to notification panel
+                            addNotification(
+                                'fire',
+                                '🔥 FIRE ALERT!',
+                                'Fire detected! Check flame sensor immediately!',
+                                '🔥'
+                            );
+
+                            // Show fire notification toast
+                            showFireNotification("🔥 FIRE DETECTED! Check flame sensor immediately!");
+                        }
                     } else {
-                        flameEl.innerHTML = "Safe";
-                        // Add safe class to card
+                        // Fire cleared
+                        flameEl.innerHTML = '<span class="flame-icon">✓</span><span class="flame-text">Safe</span>';
+
+                        // Remove alert class
                         if (flameCard) {
                             flameCard.classList.add('flame-safe');
                             flameCard.classList.remove('flame-alert');
                         }
-                        // REMOVE FULL DASHBOARD ALERT
+
+                        // Remove full page blinking
                         document.body.classList.remove('emergency-alert');
+
+                        // Reset alert flag
+                        if (flameAlertActive) {
+                            flameAlertActive = false;
+                            dismissFireNotification();
+                        }
                     }
                 }
             }
@@ -231,27 +264,35 @@ let relayList = [
 let deleteTarget = null;
 
 function showSection(id, event) {
-    document.querySelectorAll('.section').forEach(sec => sec.style.display = 'none');
-    document.getElementById(id).style.display = id === 'settings' ? 'flex' : 'block';
-    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+    document.querySelectorAll('.section').forEach(sec => {
+        sec.style.display = 'none';
+    });
+    const targetSection = document.getElementById(id);
+    if (targetSection) {
+        targetSection.style.display = id === 'settings' ? 'flex' : 'block';
+    }
 
+    // XÓA TẤT CẢ active class trước
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+
+    // THÊM active class cho item được click
+    if (event && event.currentTarget) {
+        event.currentTarget.classList.add('active');
+    }
     // Update Info section when shown
     if (id === 'info') {
         updateInfo();
-        // Auto-refresh every 5 seconds
         if (window.infoInterval) clearInterval(window.infoInterval);
         window.infoInterval = setInterval(updateInfo, 5000);
     } else {
-        // Clear interval when leaving Info section
         if (window.infoInterval) {
             clearInterval(window.infoInterval);
             window.infoInterval = null;
         }
     }
 }
-
-
 // ==================== DEVICE FUNCTIONS ====================
 function openAddRelayDialog() {
     document.getElementById('addRelayDialog').style.display = 'flex';
@@ -262,10 +303,16 @@ function closeAddRelayDialog() {
 function saveRelay() {
     const name = document.getElementById('relayName').value.trim();
     const gpio = document.getElementById('relayGPIO').value.trim();
-    if (!name || !gpio) return alert("⚠️ Please fill all fields!");
+    if (!name || !gpio) return alert("Please fill all fields!");
+
     relayList.push({ id: Date.now(), name, gpio, state: false });
     renderRelays();
     closeAddRelayDialog();
+    addNotification(
+        'info',
+        '➕ Device Added',
+        `New relay "${name}" added on GPIO ${gpio}`
+    );
 }
 function renderRelays() {
     const container = document.getElementById('relayContainer');
@@ -435,15 +482,19 @@ document.getElementById("settingsForm").addEventListener("submit", function (e) 
         }
     });
     Send_Data(settingsJSON);
-
-    // Add notification
+    addNotification(
+        'info',
+        'Settings Saved',
+        `Configuration saved. Connecting to WiFi: ${ssid}`
+    );
+    alert("Configuration sent! Device will restart and connect to WiFi.");
     addNotification(
         'wifi',
         'WiFi Connecting',
         `Attempting to connect to ${ssid}...`
     );
 
-    alert("✅ Configuration sent! Device will restart and connect to WiFi.");
+    alert("Configuration sent! Device will restart and connect to WiFi.");
 });
 
 // ==================== INFO SECTION ====================
@@ -478,6 +529,41 @@ function formatUptime(seconds) {
         return `${minutes}m ${secs}s`;
     }
 }
+let baseUptime = 0;
+let lastUptimeUpdate = 0;
+function updateInfo() {
+    fetch("/info")
+        .then(response => response.json())
+        .then(data => {
+            // System info
+            document.getElementById("chipModel").textContent = data.chipModel || "Yolo UNO";
+            document.getElementById("freeHeap").textContent = (data.freeHeap / 1024).toFixed(1) + " KB";
+
+            // Lưu uptime từ server
+            baseUptime = data.uptime || 0;
+            lastUptimeUpdate = Date.now();
+
+            // Update uptime display
+            updateUptimeDisplay();
+            // WiFi info
+            document.getElementById("wifiSSID").textContent = data.wifiSSID || "--";
+            document.getElementById("ipAddress").textContent = data.ipAddress || "--";
+            document.getElementById("wifiSignal").textContent = data.wifiSignal ? data.wifiSignal + " dBm" : "--";
+        })
+        .catch(err => console.error("❌ Error fetching info:", err));
+}
+// Hàm update uptime display realtime
+function updateUptimeDisplay() {
+    if (baseUptime === 0) return;
+    const elapsedSeconds = Math.floor((Date.now() - lastUptimeUpdate) / 1000);
+    const currentUptime = baseUptime + elapsedSeconds;
+
+    const uptimeEl = document.getElementById("systemUptime");
+    if (uptimeEl) {
+        uptimeEl.textContent = formatUptime(currentUptime);
+    }
+}
+setInterval(updateUptimeDisplay, 1000);
 // ==================== FLAME ALERT SYSTEM ====================
 let flameAlertActive = false;
 let alertCount = 0;
@@ -562,51 +648,6 @@ function updateAlertBadge() {
     const alertsTodayEl = document.getElementById('alertsToday');
     if (alertsTodayEl) {
         alertsTodayEl.textContent = alertCount;
-    }
-}
-if (data.flame !== undefined) {
-    const flameEl = document.getElementById("flame");
-    const flameCard = flameEl?.closest('.compact-card');
-
-    if (flameEl) {
-        if (data.flame === true) {
-            // Fire detected!
-            flameEl.innerHTML = "FIRE!";
-
-            // Add alert class to card
-            if (flameCard) {
-                flameCard.classList.add('flame-alert');
-                flameCard.classList.remove('flame-safe');
-            }
-
-            // Trigger full page red blinking
-            document.body.classList.add('emergency-alert');
-
-            // Show notification (only once per alert)
-            if (!flameAlertActive) {
-                flameAlertActive = true;
-                showFireNotification("🔥 FIRE DETECTED! Check flame sensor immediately!");
-            }
-        } else {
-            // Fire cleared
-            flameEl.innerHTML = "Safe";
-
-            // Remove alert class
-            if (flameCard) {
-                flameCard.classList.add('flame-safe');
-                flameCard.classList.remove('flame-alert');
-            }
-
-            // Remove full page blinking
-            document.body.classList.remove('emergency-alert');
-
-            // Reset alert flag
-            if (flameAlertActive) {
-                flameAlertActive = false;
-                // Optional: Auto-dismiss notification when safe
-                // dismissFireNotification();
-            }
-        }
     }
 }
 let notifications = [];
