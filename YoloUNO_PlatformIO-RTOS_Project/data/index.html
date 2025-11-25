@@ -269,23 +269,23 @@
     <!-- WiFi Settings Card -->
     <div class="settings-card">
       <h2>📡 WiFi Settings</h2>
-      <p style="margin-bottom: 20px; opacity: 0.8;">Kết nối ESP32 vào WiFi nhà của bạn</p>
+      <p style="margin-bottom: 20px; opacity: 0.8;">Connect your ESP32 to the home WiFi network</p>
 
       <form id="wifiForm">
         <div class="settings-group">
           <div class="input-group">
             <span class="input-icon">📶</span>
-            <input type="text" id="ssid" placeholder="Tên WiFi (SSID)" required>
+            <input type="text" id="ssid" placeholder="WiFi name (SSID)" required>
           </div>
 
           <div class="input-group">
             <span class="input-icon">🔒</span>
-            <input type="password" id="password" placeholder="Mật khẩu WiFi" required>
+            <input type="password" id="password" placeholder="WiFi password" required>
           </div>
         </div>
 
         <button type="submit" class="btn-save btn-wifi">
-          📡 Lưu WiFi & Khởi động lại
+          📡 Save WiFi & Reboot
         </button>
       </form>
     </div>
@@ -293,7 +293,7 @@
     <!-- CoreIOT Settings Card -->
     <div class="settings-card">
       <h2>☁️ CoreIOT Settings</h2>
-      <p style="margin-bottom: 20px; opacity: 0.8;">Cấu hình kết nối đến CoreIOT Cloud (tuỳ chọn)</p>
+      <p style="margin-bottom: 20px; opacity: 0.8;">Configure connection to CoreIOT Cloud (optional)</p>
 
       <form id="coreiotForm">
         <div class="settings-group">
@@ -304,17 +304,17 @@
 
           <div class="input-group">
             <span class="input-icon">🌐</span>
-            <input type="text" id="server" placeholder="Server (mặc định: app.coreiot.io)" value="app.coreiot.io">
+            <input type="text" id="server" placeholder="Server (default: app.coreiot.io)" value="app.coreiot.io">
           </div>
 
           <div class="input-group">
             <span class="input-icon">🔌</span>
-            <input type="number" id="port" placeholder="Port (mặc định: 1883)" value="1883">
+            <input type="number" id="port" placeholder="Port (default: 1883)" value="1883">
           </div>
         </div>
 
         <button type="submit" class="btn-save btn-coreiot">
-          ☁️ Lưu CoreIOT & Khởi động lại
+          ☁️ Save CoreIOT & Reboot
         </button>
       </form>
     </div>

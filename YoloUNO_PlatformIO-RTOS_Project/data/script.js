@@ -426,7 +426,7 @@ function downloadCSV() {
 }
 
 function clearCSV() {
-    if (confirm("Do you sure want to delete all CSV data?")) {
+    if (confirm("Are you sure you want to delete all CSV data?")) {
         fetch("/clear")
             .then(response => response.text())
             .then(data => {
@@ -434,8 +434,8 @@ function clearCSV() {
                 updateCSVInfo();
             })
             .catch(err => {
-                console.error("❌ Lỗi xóa CSV:", err);
-                alert("❌ Lỗi kết nối!");
+                console.error("❌ Failed to clear CSV:", err);
+                alert("❌ Connection error!");
             });
     }
 }
@@ -448,12 +448,12 @@ function updateCSVInfo() {
             if (data.exists) {
                 statusEl.innerHTML = `📄 Size: ${data.size} bytes | Lines: ~${data.lines}`;
             } else {
-                statusEl.innerHTML = "❌ Chưa có dữ liệu";
+                statusEl.innerHTML = "❌ No data yet";
             }
         })
         .catch(err => {
-            console.error("❌ Lỗi lấy thông tin CSV:", err);
-            document.getElementById("csvStatus").innerHTML = "⚠️ Không thể lấy thông tin";
+            console.error("❌ Failed to fetch CSV info:", err);
+            document.getElementById("csvStatus").innerHTML = "⚠️ Unable to fetch info";
         });
 }
 
@@ -467,7 +467,7 @@ document.getElementById("wifiForm").addEventListener("submit", function (e) {
     const password = document.getElementById("password").value.trim();
 
     if (!ssid) {
-        alert("⚠️ Vui lòng nhập tên WiFi (SSID)!");
+        alert("⚠️ Please enter a WiFi name (SSID)!");
         return;
     }
 
@@ -482,10 +482,10 @@ document.getElementById("wifiForm").addEventListener("submit", function (e) {
 
     addNotification(
         'wifi',
-        '📡 WiFi Đã Lưu',
-        `Đang kết nối đến: ${ssid}...`
+        '📡 WiFi Saved',
+        `Connecting to: ${ssid}...`
     );
-    alert("✅ Cấu hình WiFi đã gửi!\n\nThiết bị sẽ khởi động lại và kết nối vào WiFi: " + ssid);
+    alert("✅ WiFi configuration sent!\n\nDevice will reboot and reconnect to: " + ssid);
 });
 
 // ==================== COREIOT SETTINGS FORM ====================
@@ -496,7 +496,7 @@ document.getElementById("coreiotForm").addEventListener("submit", function (e) {
     const port = document.getElementById("port").value.trim() || "1883";
 
     if (!token) {
-        alert("⚠️ Vui lòng nhập Device Access Token!");
+        alert("⚠️ Please enter a Device Access Token!");
         return;
     }
 
@@ -512,10 +512,10 @@ document.getElementById("coreiotForm").addEventListener("submit", function (e) {
 
     addNotification(
         'info',
-        '☁️ CoreIOT Đã Lưu',
+        '☁️ CoreIOT Saved',
         `Server: ${server}:${port}`
     );
-    alert("✅ Cấu hình CoreIOT đã gửi!\n\nThiết bị sẽ khởi động lại.");
+    alert("✅ CoreIOT configuration sent!\n\nDevice will reboot.");
 });
 
 
