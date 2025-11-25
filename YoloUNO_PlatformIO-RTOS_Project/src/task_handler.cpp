@@ -36,26 +36,34 @@ void handleWebSocketMessage(String message)
             Serial.printf("💤 GPIO %d OFF\n", gpio);
         }
     }
-    else if (doc["page"] == "setting")
+    else if (doc["page"] == "wifi_setting")
     {
         String WIFI_SSID = doc["value"]["ssid"].as<String>();
         String WIFI_PASS = doc["value"]["password"].as<String>();
+
+        Serial.println("📥 Received WiFi config:");
+        Serial.println("SSID: " + WIFI_SSID);
+        Serial.println("PASS: " + WIFI_PASS);
+
+        Save_wifi_File(WIFI_SSID, WIFI_PASS);
+
+        String msg = "{\"status\":\"ok\",\"page\":\"wifi_saved\"}";
+        ws.textAll(msg);
+    }
+    else if (doc["page"] == "coreiot_setting")
+    {
         String CORE_IOT_TOKEN = doc["value"]["token"].as<String>();
         String CORE_IOT_SERVER = doc["value"]["server"].as<String>();
         String CORE_IOT_PORT = doc["value"]["port"].as<String>();
 
-        Serial.println("📥 Nhận cấu hình từ WebSocket:");
-        Serial.println("SSID: " + WIFI_SSID);
-        Serial.println("PASS: " + WIFI_PASS);
+        Serial.println("📥 Received CoreIOT config:");
         Serial.println("TOKEN: " + CORE_IOT_TOKEN);
         Serial.println("SERVER: " + CORE_IOT_SERVER);
         Serial.println("PORT: " + CORE_IOT_PORT);
 
-        // 👉 Gọi hàm lưu cấu hình
-        Save_info_File(WIFI_SSID, WIFI_PASS, CORE_IOT_TOKEN, CORE_IOT_SERVER, CORE_IOT_PORT);
+        Save_coreiot_File(CORE_IOT_TOKEN, CORE_IOT_SERVER, CORE_IOT_PORT);
 
-        // Phản hồi lại client (tùy chọn)
-        String msg = "{\"status\":\"ok\",\"page\":\"setting_saved\"}";
+        String msg = "{\"status\":\"ok\",\"page\":\"coreiot_saved\"}";
         ws.textAll(msg);
     }
     else if (doc["page"] == "neoled")

@@ -100,39 +100,48 @@ void CORE_IOT_sendata(String mode, String feed, String data)
 
 void CORE_IOT_reconnect()
 {
+    // Kiểm tra token trước - nếu chưa cấu hình thì không kết nối
+    if (CORE_IOT_TOKEN.isEmpty() || CORE_IOT_SERVER.isEmpty())
+    {
+        // Không có token, bỏ qua kết nối CoreIOT
+        return;
+    }
+    
     if (!tb.connected())
     {
-        if (!tb.connect(CORE_IOT_SERVER.c_str(), CORE_IOT_TOKEN.c_str(), CORE_IOT_PORT))  // CORE_IOT_PORT is already int
+        Serial.println("🔄 Connecting to CoreIOT...");
+        if (!tb.connect(CORE_IOT_SERVER.c_str(), CORE_IOT_TOKEN.c_str(), CORE_IOT_PORT))
         {
-            // Serial.println("Failed to connect");
+            Serial.println("❌ CoreIOT connection failed");
             return;
         }
-
+        
+        Serial.println("✅ CoreIOT connected!");
         tb.sendAttributeData("macAddress", WiFi.macAddress().c_str());
 
-        Serial.println("Subscribing for RPC...");
+        Serial.println("📡 Subscribing for RPC...");
         if (!tb.RPC_Subscribe(callbacks.cbegin(), callbacks.cend()))
         {
-            // Serial.println("Failed to subscribe for RPC");
+            Serial.println("⚠️ RPC subscribe failed");
             return;
         }
 
         if (!tb.Shared_Attributes_Subscribe(attributes_callback))
         {
-            // Serial.println("Failed to subscribe for shared attribute updates");
+            Serial.println("⚠️ Shared attributes subscribe failed");
             return;
         }
 
-        Serial.println("Subscribe done");
+        Serial.println("✅ Subscribe done");
 
         if (!tb.Shared_Attributes_Request(attribute_shared_request_callback))
         {
-            // Serial.println("Failed to request for shared attributes");
+            Serial.println("⚠️ Shared attributes request failed");
             return;
         }
         tb.sendAttributeData("localIp", WiFi.localIP().toString().c_str());
     }
-    else if (tb.connected())
+    else
     {
         tb.loop();
     }
@@ -154,43 +163,57 @@ void CORE_IOT_task(void *pvParameters)
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 
+    // Kiểm tra token đã cấu hình chưa
+    if (CORE_IOT_TOKEN.isEmpty())
+    {
+        Serial.println("ℹ️ CoreIOT Token chưa được cấu hình");
+        Serial.println("💡 Vào Settings → CoreIOT Settings để cấu hình");
+        // Kết thúc task nếu chưa cấu hình
+        vTaskDelete(NULL);
+        return;
+    }
+
     unsigned long lastPublish = 0;
     const unsigned long PUBLISH_INTERVAL = 10000; // 10 seconds
+    static bool notConnectedLogged = false;
 
     while (1)
     {
-        CORE_IOT_reconnect();
-
-        unsigned long now = millis();
-        if (now - lastPublish >= PUBLISH_INTERVAL)
+        // Chỉ kết nối nếu có token
+        if (!CORE_IOT_TOKEN.isEmpty())
         {
-            lastPublish = now;
+            CORE_IOT_reconnect();
 
-            // Publish all sensor telemetry data
-            if (tb.connected())
+            unsigned long now = millis();
+            if (now - lastPublish >= PUBLISH_INTERVAL)
             {
-                Serial.println("📤 Publishing sensor data to CoreIOT...");
-                
-                tb.sendTelemetryData("temperature", glob_temperature);
-                tb.sendTelemetryData("humidity", glob_humidity);
-                tb.sendTelemetryData("light", glob_light_level);
-                tb.sendTelemetryData("moisture", glob_moisture_level);
-                tb.sendTelemetryData("flame", glob_flame_detected ? 1 : 0);
-                tb.sendTelemetryData("fanStatus", glob_fan_enabled ? 1 : 0);
-                tb.sendTelemetryData("neoLedEnabled", glob_neoled_enabled ? 1 : 0);
+                lastPublish = now;
 
-                Serial.printf("  🌡️  Temp: %.1f°C | 💧 Hum: %.1f%%\n", glob_temperature, glob_humidity);
-                Serial.printf("  ☀️  Light: %.0f lux | 🌱 Moisture: %.1f%%\n", glob_light_level, glob_moisture_level);
-                Serial.printf("  🔥 Flame: %s | 🌀 Fan: %s\n", 
-                    glob_flame_detected ? "DETECTED" : "Safe",
-                    glob_fan_enabled ? "ON" : "OFF");
-            }
-            else
-            {
-                Serial.println("⚠️  Not connected to CoreIOT");
+                // Publish all sensor telemetry data
+                if (tb.connected())
+                {
+                    notConnectedLogged = false;
+                    Serial.println("📤 Publishing sensor data to CoreIOT...");
+                    
+                    tb.sendTelemetryData("temperature", glob_temperature);
+                    tb.sendTelemetryData("humidity", glob_humidity);
+                    tb.sendTelemetryData("light", glob_light_level);
+                    tb.sendTelemetryData("moisture", glob_moisture_level);
+                    tb.sendTelemetryData("flame", glob_flame_detected ? 1 : 0);
+                    tb.sendTelemetryData("fanStatus", glob_fan_enabled ? 1 : 0);
+                    tb.sendTelemetryData("neoLedEnabled", glob_neoled_enabled ? 1 : 0);
+
+                    Serial.printf("  🌡️  Temp: %.1f°C | 💧 Hum: %.1f%%\n", glob_temperature, glob_humidity);
+                    Serial.printf("  ☀️  Light: %.0f lux | 🌱 Moisture: %.1f%%\n", glob_light_level, glob_moisture_level);
+                }
+                else if (!notConnectedLogged)
+                {
+                    Serial.println("⚠️ CoreIOT not connected - will retry...");
+                    notConnectedLogged = true;
+                }
             }
         }
 
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(500 / portTICK_PERIOD_MS);  // Tăng delay để giảm tải
     }
 }

@@ -263,52 +263,63 @@
     </div>
   </div>
 
-  <!-- SETTINGS SECTION - FIXED: Improved layout -->
+  <!-- SETTINGS SECTION - SEPARATED: WiFi and CoreIOT -->
   <div id="settings" class="section settings-section" style="display:none;">
+    
+    <!-- WiFi Settings Card -->
     <div class="settings-card">
-      <h2>⚙️ Device Configuration</h2>
-      <p style="margin-bottom: 30px; opacity: 0.8;">Configure your Wi-Fi and CoreIOT connection settings</p>
+      <h2>📡 WiFi Settings</h2>
+      <p style="margin-bottom: 20px; opacity: 0.8;">Kết nối ESP32 vào WiFi nhà của bạn</p>
 
-      <form id="settingsForm">
+      <form id="wifiForm">
         <div class="settings-group">
-          <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: var(--primary-cyan);">📡 WiFi Settings</h3>
           <div class="input-group">
             <span class="input-icon">📶</span>
-            <input type="text" id="ssid" placeholder="WiFi SSID" required>
+            <input type="text" id="ssid" placeholder="Tên WiFi (SSID)" required>
           </div>
 
           <div class="input-group">
             <span class="input-icon">🔒</span>
-            <input type="password" id="password" placeholder="WiFi Password" required>
+            <input type="password" id="password" placeholder="Mật khẩu WiFi" required>
           </div>
         </div>
 
+        <button type="submit" class="btn-save btn-wifi">
+          📡 Lưu WiFi & Khởi động lại
+        </button>
+      </form>
+    </div>
+
+    <!-- CoreIOT Settings Card -->
+    <div class="settings-card">
+      <h2>☁️ CoreIOT Settings</h2>
+      <p style="margin-bottom: 20px; opacity: 0.8;">Cấu hình kết nối đến CoreIOT Cloud (tuỳ chọn)</p>
+
+      <form id="coreiotForm">
         <div class="settings-group">
-          <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: var(--primary-cyan);">☁️ CoreIOT Settings</h3>
           <div class="input-group">
             <span class="input-icon">🔑</span>
-            <input type="text" id="token" placeholder="Device Access Token" required>
+            <input type="text" id="token" placeholder="Device Access Token">
           </div>
 
           <div class="input-group">
             <span class="input-icon">🌐</span>
-            <input type="text" id="server" placeholder="Server (default: app.coreiot.io)" required>
+            <input type="text" id="server" placeholder="Server (mặc định: app.coreiot.io)" value="app.coreiot.io">
           </div>
 
           <div class="input-group">
             <span class="input-icon">🔌</span>
-            <input type="number" id="port" placeholder="Port (default: 1883)" required>
+            <input type="number" id="port" placeholder="Port (mặc định: 1883)" value="1883">
           </div>
         </div>
 
-        <button type="submit" class="btn-save">
-          💾 Save & Restart Device
+        <button type="submit" class="btn-save btn-coreiot">
+          ☁️ Lưu CoreIOT & Khởi động lại
         </button>
       </form>
     </div>
-  </div>
-  </div>
 
+  </div>
   <!-- DIALOGS -->
   <div id="addRelayDialog" class="dialog-overlay" style="display:none;">
     <div class="dialog fade-in">

@@ -1233,16 +1233,76 @@ header p {
 }
 
 /* === 18. SETTINGS IMPROVEMENTS === */
+.settings-section {
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 50px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.settings-section .settings-card {
+  max-width: 100%;
+  margin: 0;
+  padding: 24px;
+}
+
+.settings-section .settings-card h2 {
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, var(--primary-blue), var(--primary-cyan));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.settings-section .settings-card p {
+  font-size: 0.85rem;
+  margin-bottom: 15px;
+}
+
 .settings-group {
-  margin-bottom: 35px;
-  padding: 20px;
+  margin-bottom: 15px;
+  padding: 12px;
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .settings-group:last-of-type {
-  margin-bottom: 25px;
+  margin-bottom: 15px;
+}
+
+.settings-group .input-group {
+  margin-bottom: 12px;
+}
+
+.settings-group .input-group:last-child {
+  margin-bottom: 0;
+}
+
+/* WiFi Button Style */
+.btn-wifi {
+  background: linear-gradient(135deg, #10B981, #059669);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5);
+  padding: 12px;
+  font-size: 0.9rem;
+}
+
+.btn-wifi:hover {
+  box-shadow: 0 6px 24px rgba(16, 185, 129, 0.7);
+}
+
+/* CoreIOT Button Style */
+.btn-coreiot {
+  background: linear-gradient(135deg, #6366F1, #8B5CF6);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.5);
+  padding: 12px;
+  font-size: 0.9rem;
+}
+
+.btn-coreiot:hover {
+  box-shadow: 0 6px 24px rgba(99, 102, 241, 0.7);
 }
 
 /* === 19. COREIOT LINK CARD === */

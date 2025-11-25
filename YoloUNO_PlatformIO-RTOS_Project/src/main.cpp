@@ -1,22 +1,13 @@
 #include "global.h"
 #include <Wire.h>
-
 #include "led_blinky.h"
 #include "neo_blinky.h"
 #include "temp_humi_monitor.h"
 #include "temp_humi_oled.h"
 #include "temp_humi_csv.h"
-
-// New sensor tasks
 #include "sensor_light.h"
 #include "sensor_moisture.h"
 #include "sensor_flame.h"
-
-// #include "mainserver.h"
-// #include "tinyml.h"
-// #include "coreiot.h"
-
-// include task
 #include "task_check_info.h"
 #include "task_toogle_boot.h"
 #include "task_wifi.h"
@@ -26,45 +17,35 @@
 void setup()
 {
   Serial.begin(115200);
+  delay(2000);
   
-  // Khởi tạo I2C bus MỘT LẦN duy nhất (GPIO 11=SDA, 12=SCL)
+  Serial.println("\n🚀 ESP32 Starting...");
+  
   Wire.begin(11, 12);
-  Serial.println("I2C Bus initialized on SDA=11, SCL=12");
-  
   check_info_File(0);
-  startAP();
-  xTaskCreate(led_blinky, "Task LED Blink", 2048, NULL, 2, NULL);
-  xTaskCreate(neo_blinky, "Task NEO Blink", 2048, NULL, 2, NULL);
-  //xTaskCreate(temp_humi_monitor, "Task TEMP HUMI Monitor", 4096, NULL, 2, NULL); // DHT20 - Không sử dụng
-  xTaskCreate(temp_humi_oled, "Task TEMP HUMI OLED", 4096, NULL, 2, NULL); // DHT11 - Đang sử dụng
-  xTaskCreate(temp_humi_csv, "Task CSV Logger", 4096, NULL, 1, NULL); // Ghi CSV - Priority thấp hơn
-
-  // New sensor tasks
-  xTaskCreate(sensor_light_task, "Light Sensor", 2048, NULL, 2, NULL);
-  xTaskCreate(sensor_moisture_task, "Soil Moisture", 2048, NULL, 2, NULL);
-  xTaskCreate(sensor_flame_task, "Flame Sensor", 2048, NULL, 3, NULL); // Higher priority for safety
-
-  // CoreIOT Cloud Publishing
-  xTaskCreate(CORE_IOT_task, "CoreIOT Task", 4096, NULL, 2, NULL);
-
-  //xTaskCreate(main_server_task, "Task Main Server" ,8192  ,NULL  ,2 , NULL);
-  // xTaskCreate( tiny_ml_task, "Tiny ML Task" ,2048  ,NULL  ,2 , NULL);
-  // xTaskCreate(Task_Toogle_BOOT, "Task_Toogle_BOOT", 4096, NULL, 2, NULL);
   
+  xTaskCreate(led_blinky, "LED", 2048, NULL, 2, NULL);
+  xTaskCreate(neo_blinky, "NEO", 2048, NULL, 2, NULL);
+  xTaskCreate(temp_humi_oled, "OLED", 4096, NULL, 2, NULL);
+  xTaskCreate(temp_humi_csv, "CSV", 4096, NULL, 1, NULL);
+  xTaskCreate(sensor_light_task, "Light", 2048, NULL, 2, NULL);
+  xTaskCreate(sensor_moisture_task, "Moisture", 2048, NULL, 2, NULL);
+  xTaskCreate(sensor_flame_task, "Flame", 2048, NULL, 3, NULL);
+  xTaskCreate(CORE_IOT_task, "CoreIOT", 4096, NULL, 2, NULL);
+  
+  Serial.println("🎉 Setup Complete!\n");
 }
 
 void loop()
 {
-  if (check_info_File(1))
-  {
-    if (!Wifi_reconnect())
-    {
+  if (check_info_File(1)) {
+    if (!Wifi_reconnect()) {
       Webserver_stop();
     }
-    else
-    {
-      CORE_IOT_reconnect();
-    }
+    // CoreIOT được xử lý trong CORE_IOT_task, không gọi ở đây
   }
   Webserver_reconnect();
+  
+  // Yield để các task khác chạy và OTA hoạt động ổn định
+  delay(10);
 }

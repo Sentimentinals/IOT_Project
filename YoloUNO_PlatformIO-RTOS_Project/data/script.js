@@ -457,45 +457,67 @@ function updateCSVInfo() {
         });
 }
 
-// Cập nhật thông tin CSV mỗi 10 giây
 setInterval(updateCSVInfo, 10000);
 // Và cập nhật ngay khi load trang
 setTimeout(updateCSVInfo, 2000);
-
-
-// ==================== SETTINGS FORM (BỔ SUNG) ====================
-document.getElementById("settingsForm").addEventListener("submit", function (e) {
+// ==================== WIFI SETTINGS FORM ====================
+document.getElementById("wifiForm").addEventListener("submit", function (e) {
     e.preventDefault();
     const ssid = document.getElementById("ssid").value.trim();
     const password = document.getElementById("password").value.trim();
-    const token = document.getElementById("token").value.trim();
-    const server = document.getElementById("server").value.trim();
-    const port = document.getElementById("port").value.trim();
-    const settingsJSON = JSON.stringify({
-        page: "setting",
+
+    if (!ssid) {
+        alert("⚠️ Vui lòng nhập tên WiFi (SSID)!");
+        return;
+    }
+
+    const wifiJSON = JSON.stringify({
+        page: "wifi_setting",
         value: {
             ssid: ssid,
-            password: password,
+            password: password
+        }
+    });
+    Send_Data(wifiJSON);
+
+    addNotification(
+        'wifi',
+        '📡 WiFi Đã Lưu',
+        `Đang kết nối đến: ${ssid}...`
+    );
+    alert("✅ Cấu hình WiFi đã gửi!\n\nThiết bị sẽ khởi động lại và kết nối vào WiFi: " + ssid);
+});
+
+// ==================== COREIOT SETTINGS FORM ====================
+document.getElementById("coreiotForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const token = document.getElementById("token").value.trim();
+    const server = document.getElementById("server").value.trim() || "app.coreiot.io";
+    const port = document.getElementById("port").value.trim() || "1883";
+
+    if (!token) {
+        alert("⚠️ Vui lòng nhập Device Access Token!");
+        return;
+    }
+
+    const coreiotJSON = JSON.stringify({
+        page: "coreiot_setting",
+        value: {
             token: token,
             server: server,
             port: port
         }
     });
-    Send_Data(settingsJSON);
+    Send_Data(coreiotJSON);
+
     addNotification(
         'info',
-        'Settings Saved',
-        `Configuration saved. Connecting to WiFi: ${ssid}`
+        '☁️ CoreIOT Đã Lưu',
+        `Server: ${server}:${port}`
     );
-    alert("Configuration sent! Device will restart and connect to WiFi.");
-    addNotification(
-        'wifi',
-        'WiFi Connecting',
-        `Attempting to connect to ${ssid}...`
-    );
-
-    alert("Configuration sent! Device will restart and connect to WiFi.");
+    alert("✅ Cấu hình CoreIOT đã gửi!\n\nThiết bị sẽ khởi động lại.");
 });
+
 
 // ==================== INFO SECTION ====================
 function updateInfo() {

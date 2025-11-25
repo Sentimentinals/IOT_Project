@@ -133,9 +133,42 @@ void connnectWSV()
                   request->send(200, "application/json", json);
               });
     
-    server.begin();
+    // ⚠️ QUAN TRỌNG: ElegantOTA.begin() phải gọi TRƯỚC server.begin()
     ElegantOTA.begin(&server);
+    ElegantOTA.setAutoReboot(true);  // Tự động reboot sau khi upload thành công
+    
+    // Cấu hình ElegantOTA callbacks để debug
+    ElegantOTA.onStart([]() {
+        Serial.println("\n🔄 ========== OTA UPDATE STARTING ==========");
+        Serial.println("⏳ Đang upload, vui lòng đợi...");
+        // Đóng tất cả WebSocket connections để giải phóng RAM
+        ws.closeAll();
+        Serial.printf("💾 Free Heap: %u bytes\n", ESP.getFreeHeap());
+    });
+    
+    ElegantOTA.onProgress([](size_t current, size_t final_size) {
+        static int lastPercent = -1;
+        int percent = (current * 100) / final_size;
+        if (percent != lastPercent && percent % 5 == 0) {
+            Serial.printf("📦 OTA: %d%% (%u/%u)\n", percent, current, final_size);
+            lastPercent = percent;
+        }
+    });
+    
+    ElegantOTA.onEnd([](bool success) {
+        if (success) {
+            Serial.println("\n✅ ========== OTA UPDATE SUCCESS ==========");
+            Serial.println("🔄 Đang khởi động lại...");
+        } else {
+            Serial.println("\n❌ ========== OTA UPDATE FAILED ==========");
+            Serial.printf("💾 Free Heap: %u bytes\n", ESP.getFreeHeap());
+        }
+    });
+    
+    server.begin();
     webserver_isrunning = true;
+    Serial.println("✅ WebServer + ElegantOTA ready!");
+    Serial.printf("📡 OTA URL: http://%s/update\n", WiFi.localIP().toString().c_str());
 }
 
 void Webserver_stop()
