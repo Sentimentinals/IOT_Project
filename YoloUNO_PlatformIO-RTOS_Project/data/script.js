@@ -15,7 +15,6 @@ function toggleTheme() {
     document.documentElement.dataset.theme = newTheme;
     localStorage.setItem('theme', newTheme);
     updateThemeIcon();
-    console.log('🎨 Theme:', newTheme);
 }
 
 function updateThemeIcon() {
@@ -87,8 +86,6 @@ function onLoad(event) {
 }
 
 function onOpen(event) {
-    console.log('Connection opened');
-    // Update WiFi status
     const wifiCard = document.getElementById('wifiCard');
     const wifiStatus = document.getElementById('wifiStatus');
     const wifiIcon = document.getElementById('wifiIcon');
@@ -101,8 +98,6 @@ function onOpen(event) {
 }
 
 function onClose(event) {
-    console.log('Connection closed');
-    // Update WiFi status
     const wifiCard = document.getElementById('wifiCard');
     const wifiStatus = document.getElementById('wifiStatus');
     const wifiIcon = document.getElementById('wifiIcon');
@@ -116,7 +111,6 @@ function onClose(event) {
 }
 
 function initWebSocket() {
-    console.log('Trying to open a WebSocket connection…');
     websocket = new WebSocket(gateway);
     websocket.onopen = onOpen;
     websocket.onclose = onClose;
@@ -126,19 +120,27 @@ function initWebSocket() {
 function Send_Data(data) {
     if (websocket && websocket.readyState === WebSocket.OPEN) {
         websocket.send(data);
-        console.log("📤 Gửi:", data);
     } else {
-        console.warn("⚠️ WebSocket chưa sẵn sàng!");
-        alert("⚠️ WebSocket chưa kết nối!");
+        alert("⚠️ WebSocket not connected!");
     }
 }
 
+// Track state alerts to avoid duplicates
+let lastStateAlert = 'normal';
+let warningAlertActive = false;
+let criticalAlertActive = false;
+
 function onMessage(event) {
-    console.log("📩 Nhận:", event.data);
     try {
         var data = JSON.parse(event.data);
+        
+        // Handle state alerts from ESP32
+        if (data.type === "state_alert") {
+            handleStateAlert(data);
+            return;
+        }
+        
         if (data.type === "sensor") {
-
             const tempEl = document.getElementById("temp");
             const humEl = document.getElementById("hum");
 
@@ -150,7 +152,7 @@ function onMessage(event) {
             }
             if (data.light !== undefined) {
                 const lightEl = document.getElementById("light");
-                if (lightEl) lightEl.innerHTML = Math.round(data.light);  // Show as integer Lux
+                if (lightEl) lightEl.innerHTML = Math.round(data.light);
             }
             if (data.moisture !== undefined) {
                 const moistureEl = document.getElementById("moisture");
@@ -161,51 +163,34 @@ function onMessage(event) {
                 const flameCard = document.getElementById('flameCard');
                 if (flameEl) {
                     if (data.flame === true) {
-                        // Fire detected!
                         flameEl.innerHTML = '<span class="flame-icon">🔥</span><span class="flame-text">FIRE!</span>';
 
-                        // Add alert class to card
                         if (flameCard) {
                             flameCard.classList.add('flame-alert');
                             flameCard.classList.remove('flame-safe');
                         }
 
-                        // Trigger full page red blinking
                         document.body.classList.add('emergency-alert');
 
-                        // Show notification (only once per alert)
                         if (!flameAlertActive) {
                             flameAlertActive = true;
-
-                            // Update alert counter
-                            alertCount++;
-                            updateAlertBadge();
-
-                            // Add to notification panel
                             addNotification(
                                 'fire',
                                 '🔥 FIRE ALERT!',
-                                'Fire detected! Check flame sensor immediately!',
-                                '🔥'
+                                'Fire detected! Check flame sensor immediately!'
                             );
-
-                            // Show fire notification toast
                             showFireNotification("🔥 FIRE DETECTED! Check flame sensor immediately!");
                         }
                     } else {
-                        // Fire cleared
                         flameEl.innerHTML = '<span class="flame-icon">✓</span><span class="flame-text">Safe</span>';
 
-                        // Remove alert class
                         if (flameCard) {
                             flameCard.classList.add('flame-safe');
                             flameCard.classList.remove('flame-alert');
                         }
 
-                        // Remove full page blinking
                         document.body.classList.remove('emergency-alert');
 
-                        // Reset alert flag
                         if (flameAlertActive) {
                             flameAlertActive = false;
                             dismissFireNotification();
@@ -218,27 +203,26 @@ function onMessage(event) {
                 if (data.wifiStatus === 'connected') {
                     addNotification(
                         'wifi',
-                        'WiFi Connected',
+                        '📶 WiFi Connected',
                         `Connected to ${data.ssid || 'network'}. IP: ${data.ip || '--'}`
                     );
                 } else if (data.wifiStatus === 'failed') {
                     addNotification(
                         'wifi',
-                        'WiFi Failed',
+                        '❌ WiFi Failed',
                         'Failed to connect to WiFi. AP mode still active at 192.168.4.1'
                     );
                 } else if (data.wifiStatus === 'connecting') {
                     addNotification(
                         'wifi',
-                        'WiFi Connecting',
+                        '🔄 WiFi Connecting',
                         `Attempting to connect to ${data.ssid || 'network'}...`
                     );
                 } else if (data.wifiStatus === 'ap_mode') {
                     addNotification(
                         'info',
                         '📶 Access Point Mode',
-                        `Device running in AP mode. IP: ${data.ip || '192.168.4.1'}`,
-                        '📶'
+                        `Device running in AP mode. IP: ${data.ip || '192.168.4.1'}`
                     );
                 }
             }
@@ -251,7 +235,7 @@ function onMessage(event) {
 
 
     } catch (e) {
-        console.warn("Không phải JSON hợp lệ:", event.data);
+        // Invalid JSON
     }
 }
 
@@ -385,7 +369,6 @@ function toggleNeoLED() {
     });
 
     Send_Data(ledJSON);
-    console.log("💡 NeoLED:", neoLedState ? "On" : "Off");
 }
 
 
@@ -415,13 +398,11 @@ function toggleFan() {
     });
 
     Send_Data(fanJSON);
-    console.log("🌀 Fan:", fanState ? "On" : "Off");
 }
 
 
 // ==================== CSV CONTROLS ====================
 function downloadCSV() {
-    console.log("📥 Downloading CSV file...");
     window.location.href = "/download";
 }
 
@@ -430,11 +411,10 @@ function clearCSV() {
         fetch("/clear")
             .then(response => response.text())
             .then(data => {
-                alert(data);
+                alert("✅ " + data);
                 updateCSVInfo();
             })
             .catch(err => {
-                console.error("❌ Failed to clear CSV:", err);
                 alert("❌ Connection error!");
             });
     }
@@ -452,14 +432,13 @@ function updateCSVInfo() {
             }
         })
         .catch(err => {
-            console.error("❌ Failed to fetch CSV info:", err);
             document.getElementById("csvStatus").innerHTML = "⚠️ Unable to fetch info";
         });
 }
 
 setInterval(updateCSVInfo, 10000);
-// Và cập nhật ngay khi load trang
 setTimeout(updateCSVInfo, 2000);
+
 // ==================== WIFI SETTINGS FORM ====================
 document.getElementById("wifiForm").addEventListener("submit", function (e) {
     e.preventDefault();
@@ -524,17 +503,15 @@ function updateInfo() {
     fetch("/info")
         .then(response => response.json())
         .then(data => {
-            // System info
             document.getElementById("chipModel").textContent = data.chipModel || "Yolo UNO";
-            document.getElementById("freeHeap").textContent = (data.freeHeap / 1024).toFixed(1) + " KB";
+            document.getElementById("freeRam").textContent = (data.freeRam / 1024).toFixed(1) + " KB";
             document.getElementById("systemUptime").textContent = formatUptime(data.uptime);
 
-            // WiFi info
             document.getElementById("wifiSSID").textContent = data.wifiSSID || "--";
             document.getElementById("ipAddress").textContent = data.ipAddress || "--";
             document.getElementById("wifiSignal").textContent = data.wifiSignal ? data.wifiSignal + " dBm" : "--";
         })
-        .catch(err => console.error("❌ Error fetching info:", err));
+        .catch(err => {});
 }
 
 function formatUptime(seconds) {
@@ -559,22 +536,20 @@ function updateInfo() {
         .then(data => {
             // System info
             document.getElementById("chipModel").textContent = data.chipModel || "Yolo UNO";
-            document.getElementById("freeHeap").textContent = (data.freeHeap / 1024).toFixed(1) + " KB";
+            document.getElementById("freeRam").textContent = (data.freeRam / 1024).toFixed(1) + " KB";
 
-            // Lưu uptime từ server
             baseUptime = data.uptime || 0;
             lastUptimeUpdate = Date.now();
-
-            // Update uptime display
             updateUptimeDisplay();
-            // WiFi info
+            
             document.getElementById("wifiSSID").textContent = data.wifiSSID || "--";
             document.getElementById("ipAddress").textContent = data.ipAddress || "--";
             document.getElementById("wifiSignal").textContent = data.wifiSignal ? data.wifiSignal + " dBm" : "--";
         })
-        .catch(err => console.error("❌ Error fetching info:", err));
+        .catch(err => {});
 }
-// Hàm update uptime display realtime
+
+// Update uptime display realtime
 function updateUptimeDisplay() {
     if (baseUptime === 0) return;
     const elapsedSeconds = Math.floor((Date.now() - lastUptimeUpdate) / 1000);
@@ -588,14 +563,13 @@ function updateUptimeDisplay() {
 setInterval(updateUptimeDisplay, 1000);
 // ==================== FLAME ALERT SYSTEM ====================
 let flameAlertActive = false;
-let alertCount = 0;
-let alertHistory = [];
-// Show fire notification
+
+/**
+ * Show fire notification toast
+ */
 function showFireNotification(message = "🔥 FIRE DETECTED! Take immediate action!") {
-    // Remove existing notification if any
     dismissFireNotification();
 
-    // Create notification element
     const notification = document.createElement('div');
     notification.className = 'fire-notification';
     notification.id = 'fireNotification';
@@ -609,17 +583,81 @@ function showFireNotification(message = "🔥 FIRE DETECTED! Take immediate acti
     `;
 
     document.body.appendChild(notification);
-
-    // Play alert sound (optional)
     playAlertSound();
-
-    // Log alert
-    logAlert();
-
-    // Auto-dismiss after 10 seconds (optional)
-    // setTimeout(dismissFireNotification, 10000);
 }
-// Dismiss fire notification
+
+/**
+ * Handle state alerts from ESP32 (WARNING, CRITICAL, FIRE)
+ */
+function handleStateAlert(data) {
+    const level = data.level;
+    const reason = data.reason || 'Unknown';
+    const temp = data.temperature;
+    const hum = data.humidity;
+    
+    // Validate sensor data - skip if invalid
+    if (temp === undefined || temp === null || temp <= 0 || temp >= 80 ||
+        hum === undefined || hum === null || hum <= 0 || hum > 100) {
+        console.log('Invalid sensor data, skipping alert:', data);
+        return;
+    }
+    
+    const tempStr = temp.toFixed(1);
+    const humStr = hum.toFixed(1);
+    
+    // Avoid duplicate alerts for same level
+    if (level === lastStateAlert) return;
+    
+    console.log('State alert:', level, reason, tempStr, humStr);
+    
+    if (level === 'warning') {
+        lastStateAlert = level;
+        warningAlertActive = true;
+        criticalAlertActive = false;
+        
+        addNotification(
+            'warning',
+            '⚠️ WARNING: ' + reason,
+            `🌡️ Temp: ${tempStr}°C | 💧 Humidity: ${humStr}%`
+        );
+        
+        // Visual indicator removed as per user request
+    }
+    else if (level === 'critical') {
+        lastStateAlert = level;
+        criticalAlertActive = true;
+        warningAlertActive = false;
+        
+        addNotification(
+            'warning',
+            '🚨 CRITICAL: ' + reason,
+            `🌡️ Temp: ${tempStr}°C | 💧 Humidity: ${humStr}% - Action required!`
+        );
+        
+        // Play alert sound for critical
+        playAlertSound();
+    }
+    else if (level === 'fire') {
+        // Fire is handled by flame sensor data
+    }
+    else if (level === 'normal') {
+        // Only notify if we were in warning/critical state before
+        if (warningAlertActive || criticalAlertActive) {
+            addNotification(
+                'info',
+                '✅ Status Normal',
+                'All readings returned to normal range'
+            );
+        }
+        
+        // Clear all state alerts
+        lastStateAlert = level;
+        warningAlertActive = false;
+        criticalAlertActive = false;
+    }
+}
+
+// Dismiss fire notification toast
 function dismissFireNotification() {
     const notification = document.getElementById('fireNotification');
     if (notification) {
@@ -627,10 +665,10 @@ function dismissFireNotification() {
         setTimeout(() => notification.remove(), 300);
     }
 }
+
 // Play alert sound (browser beep)
 function playAlertSound() {
     try {
-        // Create audio context for beep sound
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
@@ -638,7 +676,7 @@ function playAlertSound() {
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
 
-        oscillator.frequency.value = 800; // Frequency in Hz
+        oscillator.frequency.value = 800;
         oscillator.type = 'sine';
 
         gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
@@ -647,95 +685,70 @@ function playAlertSound() {
         oscillator.start(audioContext.currentTime);
         oscillator.stop(audioContext.currentTime + 0.5);
     } catch (e) {
-        console.warn("Audio not supported:", e);
+        // Audio not supported
     }
 }
-// Log alert to history
-function logAlert() {
-    alertCount++;
-    const timestamp = new Date().toLocaleString();
-    alertHistory.push({
-        id: alertCount,
-        timestamp: timestamp,
-        message: "Fire detected"
-    });
 
-    // Update alert counter badge (if exists)
-    updateAlertBadge();
-
-    console.log(`🔥 Alert #${alertCount} logged at ${timestamp}`);
-}
-// Update alert counter badge
+/**
+ * Update alert counter badge
+ */
 function updateAlertBadge() {
     const alertsTodayEl = document.getElementById('alertsToday');
     if (alertsTodayEl) {
-        alertsTodayEl.textContent = alertCount;
+        const fireAlerts = notifications.filter(n => n.type === 'fire').length;
+        alertsTodayEl.textContent = fireAlerts;
     }
 }
+
 let notifications = [];
 let notificationIdCounter = 0;
+
 function saveNotifications() {
     try {
         const data = {
-            notifications: notifications.slice(0, 100), // Limit to 100
+            notifications: notifications.slice(0, 100),
             counter: notificationIdCounter,
             timestamp: Date.now()
         };
         localStorage.setItem('iot_notifications', JSON.stringify(data));
-        console.log(`💾 Saved ${notifications.length} notifications`);
     } catch (e) {
-        console.warn('Failed to save notifications:', e);
-        // If storage full, clear old data
         if (e.name === 'QuotaExceededError') {
             localStorage.removeItem('iot_notifications');
-            console.log(' Cleared old notifications due to quota');
         }
     }
 }
-// Load notifications from localStorage
+
 function loadNotifications() {
     try {
         const saved = localStorage.getItem('iot_notifications');
-        if (!saved) {
-            console.log('📭 No saved notifications found');
-            return;
-        }
+        if (!saved) return;
 
         const data = JSON.parse(saved);
 
-        // Check if data is not too old (7 days)
         const sevenDays = 7 * 24 * 60 * 60 * 1000;
         if (data.timestamp && (Date.now() - data.timestamp > sevenDays)) {
-            console.log('Notifications too old, clearing...');
             localStorage.removeItem('iot_notifications');
             return;
         }
 
-        // Restore notifications
         if (Array.isArray(data.notifications)) {
-            // Convert timestamp strings back to Date objects
             notifications = data.notifications.map(n => ({
                 ...n,
                 timestamp: new Date(n.timestamp)
             }));
             notificationIdCounter = data.counter || 0;
 
-            console.log(`📥 Loaded ${notifications.length} notifications`);
-
-            // Update UI
             updateNotificationUI();
             updateNotificationBadge();
+            updateAlertBadge();
         }
     } catch (e) {
-        console.warn('Failed to load notifications:', e);
-        // Clear corrupted data
         localStorage.removeItem('iot_notifications');
     }
 }
-// Clear all stored notifications
+
 function clearStoredNotifications() {
     localStorage.removeItem('iot_notifications');
-    console.log('Cleared stored notifications');
 }
 // Toggle notification panel
 function toggleNotificationPanel() {
@@ -783,6 +796,11 @@ function addNotification(type, title, message, icon = '🔔') {
 
     updateNotificationUI();
     updateNotificationBadge();
+    
+    // Update alert badge for fire notifications (syncs overview card)
+    if (type === 'fire') {
+        updateAlertBadge();
+    }
 
     saveNotifications();
 }
@@ -862,10 +880,11 @@ setInterval(() => {
         updateNotificationUI();
     }
 }, 60000);
+
 window.addEventListener('DOMContentLoaded', function () {
-    console.log('Dashboard loaded, restoring notifications...');
     loadNotifications();
 });
+
 window.addEventListener('beforeunload', function () {
     if (notifications.length > 0) {
         saveNotifications();

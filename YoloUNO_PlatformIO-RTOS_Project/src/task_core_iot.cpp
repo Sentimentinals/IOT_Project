@@ -1,4 +1,3 @@
-
 #include "task_core_iot.h"
 
 constexpr uint32_t MAX_MESSAGE_SIZE = 1024U;
@@ -11,68 +10,58 @@ constexpr char LED_STATE_ATTR[] = "ledState";
 
 volatile int ledMode = 0;
 volatile bool ledState = false;
-
-constexpr uint16_t BLINKING_INTERVAL_MS_MIN = 10U;
-constexpr uint16_t BLINKING_INTERVAL_MS_MAX = 60000U;
 volatile uint16_t blinkingInterval = 1000U;
-
-constexpr int16_t telemetrySendInterval = 10000U;
 
 constexpr std::array<const char *, 2U> SHARED_ATTRIBUTES_LIST = {
     LED_STATE_ATTR,
 };
 
+static bool fanEnabled = false;
+static bool neoledEnabled = true;
+
 void processSharedAttributes(const Shared_Attribute_Data &data)
 {
     for (auto it = data.begin(); it != data.end(); ++it)
     {
-        // if (strcmp(it->key().c_str(), BLINKING_INTERVAL_ATTR) == 0)
-        // {
-        //     const uint16_t new_interval = it->value().as<uint16_t>();
-        //     if (new_interval >= BLINKING_INTERVAL_MS_MIN && new_interval <= BLINKING_INTERVAL_MS_MAX)
-        //     {
-        //         blinkingInterval = new_interval;
-        //         Serial.print("Blinking interval is set to: ");
-        //         Y
-        //             Serial.println(new_interval);
-        //     }
-        // }
-        // if (strcmp(it->key().c_str(), LED_STATE_ATTR) == 0)
-        // {
-        //     ledState = it->value().as<bool>();
-        // digitalWrite(LED_PIN, ledState);
-        // Serial.print("LED state is set to: ");
-        // Serial.println(ledState);
-        // }
+        // Handle shared attributes
     }
 }
 
-// RPC Callbacks for remote control from CoreIOT
 RPC_Response setFanStatus(const RPC_Data &data) {
-    Serial.println("🌀 Received Fan control command from CoreIOT");
     bool newState = data;
+    fanEnabled = newState;
     
-    glob_fan_enabled = newState;  // Update global variable
-    
-    // Control actual fan hardware (assuming FAN_PIN = 14)
     pinMode(14, OUTPUT);
     digitalWrite(14, newState ? HIGH : LOW);
     
-    Serial.printf("Fan turned %s\n", newState ? "ON" : "OFF");
+    if (xSensorDataQueue != NULL) {
+        SensorData_t sensorData;
+        if (xQueuePeek(xSensorDataQueue, &sensorData, 0) == pdTRUE) {
+            sensorData.fan_enabled = newState;
+            xQueueOverwrite(xSensorDataQueue, &sensorData);
+        }
+    }
+    
+    Serial.printf("[CoreIOT] Fan: %s\n", newState ? "ON" : "OFF");
     return RPC_Response("setFanStatus", newState);
 }
 
 RPC_Response setLedEnabled(const RPC_Data &data) {
-    Serial.println("💡 Received NeoLed control command from CoreIOT");
     bool newState = data;
+    neoledEnabled = newState;
     
-    glob_neoled_enabled = newState;  // Update global variable
+    if (xSensorDataQueue != NULL) {
+        SensorData_t sensorData;
+        if (xQueuePeek(xSensorDataQueue, &sensorData, 0) == pdTRUE) {
+            sensorData.neoled_enabled = newState;
+            xQueueOverwrite(xSensorDataQueue, &sensorData);
+        }
+    }
     
-    Serial.printf("NeoLed %s\n", newState ? "ENABLED" : "DISABLED");
+    Serial.printf("[CoreIOT] NeoLed: %s\n", newState ? "ON" : "OFF");
     return RPC_Response("setLedEnabled", newState);
 }
 
-// Register RPC callbacks
 const std::array<RPC_Callback, 2U> callbacks = {
     RPC_Callback{"setFanStatus", setFanStatus},
     RPC_Callback{"setLedEnabled", setLedEnabled}
@@ -92,51 +81,37 @@ void CORE_IOT_sendata(String mode, String feed, String data)
         float value = data.toFloat();
         tb.sendTelemetryData(feed.c_str(), value);
     }
-    else
-    {
-        // handle unknown mode
-    }
 }
 
 void CORE_IOT_reconnect()
 {
-    // Kiểm tra token trước - nếu chưa cấu hình thì không kết nối
     if (CORE_IOT_TOKEN.isEmpty() || CORE_IOT_SERVER.isEmpty())
     {
-        // Không có token, bỏ qua kết nối CoreIOT
         return;
     }
     
     if (!tb.connected())
     {
-        Serial.println("🔄 Connecting to CoreIOT...");
         if (!tb.connect(CORE_IOT_SERVER.c_str(), CORE_IOT_TOKEN.c_str(), CORE_IOT_PORT))
         {
-            Serial.println("❌ CoreIOT connection failed");
             return;
         }
         
-        Serial.println("✅ CoreIOT connected!");
+        Serial.println("[CoreIOT] Connected");
         tb.sendAttributeData("macAddress", WiFi.macAddress().c_str());
 
-        Serial.println("📡 Subscribing for RPC...");
         if (!tb.RPC_Subscribe(callbacks.cbegin(), callbacks.cend()))
         {
-            Serial.println("⚠️ RPC subscribe failed");
             return;
         }
 
         if (!tb.Shared_Attributes_Subscribe(attributes_callback))
         {
-            Serial.println("⚠️ Shared attributes subscribe failed");
             return;
         }
 
-        Serial.println("✅ Subscribe done");
-
         if (!tb.Shared_Attributes_Request(attribute_shared_request_callback))
         {
-            Serial.println("⚠️ Shared attributes request failed");
             return;
         }
         tb.sendAttributeData("localIp", WiFi.localIP().toString().c_str());
@@ -147,39 +122,33 @@ void CORE_IOT_reconnect()
     }
 }
 
-// CoreIOT Publishing Task
 void CORE_IOT_task(void *pvParameters)
 {
-    Serial.println("🌐 CoreIOT Task Started");
+    Serial.println("[CoreIOT] Task started");
     
-    // Wait for WiFi connection
     while (1)
     {
         if (xSemaphoreTake(xBinarySemaphoreInternet, portMAX_DELAY))
         {
-            Serial.println("✅ WiFi Connected - Starting CoreIOT");
+            Serial.println("[CoreIOT] WiFi ready");
             break;
         }
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 
-    // Kiểm tra token đã cấu hình chưa
     if (CORE_IOT_TOKEN.isEmpty())
     {
-        Serial.println("ℹ️ CoreIOT Token chưa được cấu hình");
-        Serial.println("💡 Vào Settings → CoreIOT Settings để cấu hình");
-        // Kết thúc task nếu chưa cấu hình
+        Serial.println("[CoreIOT] Token not configured");
         vTaskDelete(NULL);
         return;
     }
 
     unsigned long lastPublish = 0;
-    const unsigned long PUBLISH_INTERVAL = 10000; // 10 seconds
-    static bool notConnectedLogged = false;
+    const unsigned long PUBLISH_INTERVAL = 10000;
+    SensorData_t sensorData = {0};
 
     while (1)
     {
-        // Chỉ kết nối nếu có token
         if (!CORE_IOT_TOKEN.isEmpty())
         {
             CORE_IOT_reconnect();
@@ -189,31 +158,24 @@ void CORE_IOT_task(void *pvParameters)
             {
                 lastPublish = now;
 
-                // Publish all sensor telemetry data
+                if (xSensorDataQueue != NULL) {
+                    xQueuePeek(xSensorDataQueue, &sensorData, pdMS_TO_TICKS(100));
+                }
+
                 if (tb.connected())
                 {
-                    notConnectedLogged = false;
-                    Serial.println("📤 Publishing sensor data to CoreIOT...");
-                    
-                    tb.sendTelemetryData("temperature", glob_temperature);
-                    tb.sendTelemetryData("humidity", glob_humidity);
-                    tb.sendTelemetryData("light", glob_light_level);
-                    tb.sendTelemetryData("moisture", glob_moisture_level);
-                    tb.sendTelemetryData("flame", glob_flame_detected ? 1 : 0);
-                    tb.sendTelemetryData("fanStatus", glob_fan_enabled ? 1 : 0);
-                    tb.sendTelemetryData("neoLedEnabled", glob_neoled_enabled ? 1 : 0);
-
-                    Serial.printf("  🌡️  Temp: %.1f°C | 💧 Hum: %.1f%%\n", glob_temperature, glob_humidity);
-                    Serial.printf("  ☀️  Light: %.0f lux | 🌱 Moisture: %.1f%%\n", glob_light_level, glob_moisture_level);
-                }
-                else if (!notConnectedLogged)
-                {
-                    Serial.println("⚠️ CoreIOT not connected - will retry...");
-                    notConnectedLogged = true;
+                    tb.sendTelemetryData("temperature", sensorData.temperature);
+                    tb.sendTelemetryData("humidity", sensorData.humidity);
+                    tb.sendTelemetryData("light", sensorData.light_level);
+                    tb.sendTelemetryData("moisture", sensorData.moisture_level);
+                    tb.sendTelemetryData("flame", sensorData.flame_detected ? 1 : 0);
+                    tb.sendTelemetryData("fanStatus", sensorData.fan_enabled ? 1 : 0);
+                    tb.sendTelemetryData("neoLedEnabled", sensorData.neoled_enabled ? 1 : 0);
+                    tb.sendTelemetryData("systemState", (int)getSystemState());
                 }
             }
         }
 
-        vTaskDelay(500 / portTICK_PERIOD_MS);  // Tăng delay để giảm tải
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 }

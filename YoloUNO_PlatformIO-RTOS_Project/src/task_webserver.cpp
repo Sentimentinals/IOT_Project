@@ -4,17 +4,15 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 bool webserver_isrunning = false;
-unsigned long websocket_connect_time = 0;  // Track WebSocket connection time
+unsigned long websocket_connect_time = 0;
+static unsigned long lastCleanup = 0;
+static const unsigned long CLEANUP_INTERVAL = 5000;  // Clean up every 5 seconds
+
 void Webserver_sendata(String data)
 {
     if (ws.count() > 0)
     {
-        ws.textAll(data); // Gửi đến tất cả client đang kết nối
-        Serial.println("📤 Đã gửi dữ liệu qua WebSocket: " + data);
-    }
-    else
-    {
-        Serial.println("⚠️ Không có client WebSocket nào đang kết nối!");
+        ws.textAll(data);
     }
 }
 
@@ -23,52 +21,74 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     if (type == WS_EVT_CONNECT)
     {
         websocket_connect_time = millis();
-        Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+        Serial.printf("[WS] Client #%u connected\n", client->id());
     }
     else if (type == WS_EVT_DISCONNECT)
     {
         websocket_connect_time = 0;
-        Serial.printf("WebSocket client #%u disconnected\n", client->id());
+        Serial.printf("[WS] Client #%u disconnected\n", client->id());
     }
     else if (type == WS_EVT_DATA)
     {
         AwsFrameInfo *info = (AwsFrameInfo *)arg;
-
         if (info->opcode == WS_TEXT)
         {
             String message;
             message += String((char *)data).substring(0, len);
-            // parseJson(message, true);
             handleWebSocketMessage(message);
         }
+    }
+    else if (type == WS_EVT_ERROR)
+    {
+        Serial.printf("[WS] Client #%u error\n", client->id());
     }
 }
 
 void connnectWSV()
 {
+    // Clean up any existing connections
+    ws.closeAll();
+    
     ws.onEvent(onEvent);
     server.addHandler(&ws);
+    
+    // Serve static files with cache headers for better performance
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(LittleFS, "/index.html", "text/html"); });
+              { 
+                  request->send(LittleFS, "/index.html", "text/html"); 
+              });
     server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(LittleFS, "/script.js", "application/javascript"); });
+              { 
+                  AsyncWebServerResponse *response = request->beginResponse(LittleFS, "/script.js", "application/javascript");
+                  response->addHeader("Cache-Control", "no-cache");
+                  request->send(response);
+              });
     server.on("/styles.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(LittleFS, "/styles.css", "text/css"); });
+              { 
+                  AsyncWebServerResponse *response = request->beginResponse(LittleFS, "/styles.css", "text/css");
+                  response->addHeader("Cache-Control", "no-cache");
+                  request->send(response);
+              });
     server.on("/coreiot_logo.png", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(LittleFS, "/coreiot_logo.png", "image/png"); });
     
-    // 📥 Endpoint download CSV
+    // Health check endpoint for stability monitoring
+    server.on("/health", HTTP_GET, [](AsyncWebServerRequest *request)
+              { 
+                  request->send(200, "text/plain", "OK");
+              });
+    
+    // Download CSV endpoint
     server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request)
               { 
                   if (LittleFS.exists("/sensor_data.csv")) {
                       request->send(LittleFS, "/sensor_data.csv", "text/csv", true);
-                      Serial.println("📥 Người dùng đã download file CSV");
                   } else {
-                      request->send(404, "text/plain", "File CSV không tồn tại!");
+                      request->send(404, "text/plain", "CSV file not found");
                   }
               });
     
-    // 📊 Endpoint lấy thông tin CSV
+    // CSV info endpoint
     server.on("/csv-info", HTTP_GET, [](AsyncWebServerRequest *request)
               { 
                   String json = "{";
@@ -92,25 +112,24 @@ void connnectWSV()
                   request->send(200, "application/json", json);
               });
     
-    // 🗑️ Endpoint xóa CSV (reset data)
+    // Clear CSV endpoint
     server.on("/clear", HTTP_GET, [](AsyncWebServerRequest *request)
               { 
                   if (LittleFS.remove("/sensor_data.csv")) {
-                      request->send(200, "text/plain", "✅ Đã xóa file CSV!");
-                      Serial.println("🗑️ Đã xóa file CSV");
+                      request->send(200, "text/plain", "CSV file cleared");
                   } else {
-                      request->send(500, "text/plain", "❌ Lỗi xóa file!");
+                      request->send(500, "text/plain", "Error clearing file");
                   }
               });
 
-    // 📟 Endpoint thông tin hệ thống
+    // System info endpoint
     server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                   String json = "{";
                   
-                  // System info
+                  size_t freeRam = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
                   json += "\"chipModel\":\"" + String(ESP.getChipModel()) + "\",";
-                  json += "\"freeHeap\":" + String(ESP.getFreeHeap()) + ",";
+                  json += "\"freeRam\":" + String(freeRam) + ",";
                   unsigned long uptime_seconds = 0;
                   if (websocket_connect_time > 0)
                   {
@@ -118,7 +137,6 @@ void connnectWSV()
                   }
                   json += "\"uptime\":" + String(uptime_seconds) + ",";
                   
-                  // WiFi info
                   if (WiFi.status() == WL_CONNECTED) {
                       json += "\"wifiSSID\":\"" + WiFi.SSID() + "\",";
                       json += "\"ipAddress\":\"" + WiFi.localIP().toString() + "\",";
@@ -133,42 +151,44 @@ void connnectWSV()
                   request->send(200, "application/json", json);
               });
     
-    // ⚠️ QUAN TRỌNG: ElegantOTA.begin() phải gọi TRƯỚC server.begin()
+    // ElegantOTA setup - MUST be before server.begin()
     ElegantOTA.begin(&server);
-    ElegantOTA.setAutoReboot(true);  // Tự động reboot sau khi upload thành công
+    ElegantOTA.setAutoReboot(true);
     
-    // Cấu hình ElegantOTA callbacks để debug
     ElegantOTA.onStart([]() {
-        Serial.println("\n🔄 ========== OTA UPDATE STARTING ==========");
-        Serial.println("⏳ Đang upload, vui lòng đợi...");
-        // Đóng tất cả WebSocket connections để giải phóng RAM
+        Serial.println("\n[OTA] Update starting...");
+        // Close all websocket connections before OTA
         ws.closeAll();
-        Serial.printf("💾 Free Heap: %u bytes\n", ESP.getFreeHeap());
+        vTaskDelay(pdMS_TO_TICKS(100));
     });
     
     ElegantOTA.onProgress([](size_t current, size_t final_size) {
         static int lastPercent = -1;
         int percent = (current * 100) / final_size;
-        if (percent != lastPercent && percent % 5 == 0) {
-            Serial.printf("📦 OTA: %d%% (%u/%u)\n", percent, current, final_size);
+        if (percent != lastPercent && percent % 10 == 0) {
+            Serial.printf("[OTA] %d%%\n", percent);
             lastPercent = percent;
         }
     });
     
     ElegantOTA.onEnd([](bool success) {
         if (success) {
-            Serial.println("\n✅ ========== OTA UPDATE SUCCESS ==========");
-            Serial.println("🔄 Đang khởi động lại...");
+            Serial.println("[OTA] Success! Rebooting in 2s...");
+            vTaskDelay(pdMS_TO_TICKS(2000));  // Give time for response
         } else {
-            Serial.println("\n❌ ========== OTA UPDATE FAILED ==========");
-            Serial.printf("💾 Free Heap: %u bytes\n", ESP.getFreeHeap());
+            Serial.println("[OTA] Failed");
         }
     });
     
     server.begin();
     webserver_isrunning = true;
-    Serial.println("✅ WebServer + ElegantOTA ready!");
-    Serial.printf("📡 OTA URL: http://%s/update\n", WiFi.localIP().toString().c_str());
+    
+    Serial.println("[WebServer] Started");
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.printf("[Web] http://%s\n", WiFi.localIP().toString().c_str());
+        Serial.printf("[OTA] http://%s/update\n", WiFi.localIP().toString().c_str());
+    }
+    Serial.printf("[Web] http://%s (AP)\n", WiFi.softAPIP().toString().c_str());
 }
 
 void Webserver_stop()
@@ -184,5 +204,13 @@ void Webserver_reconnect()
     {
         connnectWSV();
     }
+    
+    // Periodic cleanup of stale WebSocket connections
+    if (millis() - lastCleanup >= CLEANUP_INTERVAL) {
+        ws.cleanupClients();
+        lastCleanup = millis();
+    }
+    
+    // Process OTA
     ElegantOTA.loop();
 }

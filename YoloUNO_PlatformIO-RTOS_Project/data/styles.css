@@ -1765,3 +1765,6 @@ body:not(.emergency-alert) .metric-value {
   text-shadow: none;
   transition: text-shadow 0.8s ease-out;
 }
+
+/* === WARNING/CRITICAL STATE - No top bar, just subtle effects === */
+/* Removed top bar indicators as per user request */

@@ -2,59 +2,71 @@
 #include <time.h>
 
 static const char *NTP_SERVER = "pool.ntp.org";
-static const long GMT_OFFSET_SEC = 7 * 3600;      // Vietnam timezone (UTC+7)
+static const long GMT_OFFSET_SEC = 7 * 3600;
 static const int DAYLIGHT_OFFSET_SEC = 0;
+
+static unsigned long lastReconnectAttempt = 0;
+static const unsigned long RECONNECT_INTERVAL = 30000;  // 30 seconds
 
 static void syncTimeWithNTP()
 {
-    if (glob_ntp_synced)
-    {
-        return;
-    }
+    if (glob_ntp_synced) return;
 
-    Serial.println("⏱️ Đang đồng bộ thời gian với NTP...");
     configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER, "time.nist.gov");
 
-    // Đợi NTP sync
     for (int retries = 0; retries < 15; retries++)
     {
         time_t now = time(nullptr);
-        if (now > 1704067200)  // > 2024-01-01 00:00:00 UTC
+        if (now > 1704067200)
         {
             glob_ntp_synced = true;
             struct tm timeinfo;
             localtime_r(&now, &timeinfo);
-            Serial.printf("✅ NTP synced: %04d-%02d-%02d %02d:%02d:%02d (Epoch: %ld)\n",
+            Serial.printf("[NTP] Synced: %04d-%02d-%02d %02d:%02d:%02d\n",
                 timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
-                timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, now);
+                timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
             break;
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-    if (!glob_ntp_synced)
-    {
-        Serial.println("⚠️ Không thể đồng bộ NTP. CSV sẽ dùng timestamp từ boot.");
     }
 }
 
 void startAP()
 {
-    WiFi.mode(WIFI_AP_STA);  // Changed to dual mode
-    WiFi.softAP(String(SSID_AP), String(PASS_AP));
-    Serial.print("AP IP: ");
-    Serial.println(WiFi.softAPIP());
+    // Always start AP mode first
+    WiFi.mode(WIFI_AP_STA);
+    
+    // Configure WiFi for better stability
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(true);
+    
+    bool apStarted = WiFi.softAP(String(SSID_AP), String(PASS_AP));
+    if (apStarted) {
+        Serial.printf("[WiFi] AP Started: %s\n", String(SSID_AP).c_str());
+        Serial.printf("[WiFi] AP IP: %s\n", WiFi.softAPIP().toString().c_str());
+    } else {
+        Serial.println("[WiFi] AP Start FAILED!");
+    }
 }
 
 void startSTA()
 {
+    // Don't try STA if no credentials
     if (WIFI_SSID.isEmpty())
     {
-        vTaskDelete(NULL);
+        Serial.println("[WiFi] No STA credentials, AP-only mode");
+        return;
     }
 
-    WiFi.mode(WIFI_AP_STA);  // Changed to dual mode
+    Serial.printf("[WiFi] Connecting to: %s", WIFI_SSID.c_str());
 
+    // Disconnect first if needed
+    if (WiFi.status() == WL_CONNECTED) {
+        WiFi.disconnect();
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+
+    // Start STA connection (AP should already be running)
     if (WIFI_PASS.isEmpty())
     {
         WiFi.begin(WIFI_SSID.c_str());
@@ -63,36 +75,35 @@ void startSTA()
     {
         WiFi.begin(WIFI_SSID.c_str(), WIFI_PASS.c_str());
     }
-
-    // Keep AP running while connecting to WiFi
-    WiFi.softAP(String(SSID_AP), String(PASS_AP));
     
-    Serial.println("🌐 Connecting to WiFi...");
-    int timeout = 30;  // 30 second timeout
+    int timeout = 30;
     while (WiFi.status() != WL_CONNECTED && timeout > 0)
     {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(1000));
         Serial.print(".");
         timeout--;
     }
     
     if (WiFi.status() == WL_CONNECTED)
     {
-        Serial.println("\n✅ WiFi Connected!");
-        Serial.println("📍 STA IP: " + WiFi.localIP().toString());
+        Serial.printf("\n[WiFi] STA Connected: %s\n", WiFi.localIP().toString().c_str());
+        isWifiConnected = true;
+        lastReconnectAttempt = millis();
     
-        // Send WiFi status notification to WebSocket clients
         String wifiNotif = "{\"wifiStatus\":\"connected\",\"ssid\":\"" + WiFi.SSID() + "\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
         Webserver_sendata(wifiNotif);
     
-        xSemaphoreGive(xBinarySemaphoreInternet);
+        // Signal that internet is available
+        if (xBinarySemaphoreInternet != NULL) {
+            xSemaphoreGive(xBinarySemaphoreInternet);
+        }
         syncTimeWithNTP();
     }
     else
     {
-        Serial.println("\n WiFi Connection Failed!");
+        Serial.println("\n[WiFi] STA Connection failed, AP still active");
+        isWifiConnected = false;
     
-        // Send failure notification
         String wifiNotif = "{\"wifiStatus\":\"failed\"}";
         Webserver_sendata(wifiNotif);
     }
@@ -100,12 +111,37 @@ void startSTA()
 
 bool Wifi_reconnect()
 {
-    const wl_status_t status = WiFi.status();
-    if (status == WL_CONNECTED)
+    // Check if already connected
+    if (WiFi.status() == WL_CONNECTED)
     {
+        if (!isWifiConnected) {
+            isWifiConnected = true;
+            Serial.printf("[WiFi] Reconnected: %s\n", WiFi.localIP().toString().c_str());
+            if (xBinarySemaphoreInternet != NULL) {
+                xSemaphoreGive(xBinarySemaphoreInternet);
+            }
+        }
         syncTimeWithNTP();
         return true;
     }
-    startSTA();
-    return false;
+    
+    // Mark as disconnected
+    if (isWifiConnected) {
+        isWifiConnected = false;
+        Serial.println("[WiFi] Connection lost");
+    }
+    
+    // Rate limit reconnection attempts
+    if (millis() - lastReconnectAttempt < RECONNECT_INTERVAL) {
+        return false;
+    }
+    lastReconnectAttempt = millis();
+    
+    // Try to reconnect if we have credentials
+    if (!WIFI_SSID.isEmpty()) {
+        Serial.println("[WiFi] Attempting reconnect...");
+        startSTA();
+    }
+    
+    return WiFi.status() == WL_CONNECTED;
 }

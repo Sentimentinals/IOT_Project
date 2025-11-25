@@ -19,33 +19,57 @@ void setup()
   Serial.begin(115200);
   delay(2000);
   
-  Serial.println("\n🚀 ESP32 Starting...");
+  Serial.println("\n========================================");
+  Serial.println("  IOT Environment Monitor - RTOS");
+  Serial.println("  Queue + Semaphore Architecture");
+  Serial.println("========================================\n");
   
+  // Initialize RTOS primitives FIRST (before anything else)
+  initRTOSPrimitives();
+  
+  // Initialize I2C
   Wire.begin(11, 12);
-  check_info_File(0);
   
-  xTaskCreate(led_blinky, "LED", 2048, NULL, 2, NULL);
-  xTaskCreate(neo_blinky, "NEO", 2048, NULL, 2, NULL);
-  xTaskCreate(temp_humi_oled, "OLED", 4096, NULL, 2, NULL);
+  // Initialize LittleFS and load config, start AP
+  bool hasWifiCreds = check_info_File(0);
+  
+  // Start webserver immediately (works on AP)
+  Webserver_reconnect();
+  
+  // If we have WiFi credentials, try to connect
+  if (hasWifiCreds) {
+    startSTA();
+  }
+  
+  // Create tasks (higher number = higher priority)
+  xTaskCreate(led_blinky, "LED", 2048, NULL, 1, NULL);
+  xTaskCreate(neo_blinky, "NEO", 3072, NULL, 3, NULL);
+  xTaskCreate(temp_humi_oled, "OLED", 4096, NULL, 3, NULL);
   xTaskCreate(temp_humi_csv, "CSV", 4096, NULL, 1, NULL);
   xTaskCreate(sensor_light_task, "Light", 2048, NULL, 2, NULL);
   xTaskCreate(sensor_moisture_task, "Moisture", 2048, NULL, 2, NULL);
-  xTaskCreate(sensor_flame_task, "Flame", 2048, NULL, 3, NULL);
+  xTaskCreate(sensor_flame_task, "Flame", 3072, NULL, 4, NULL);  // Highest - safety
   xTaskCreate(CORE_IOT_task, "CoreIOT", 4096, NULL, 2, NULL);
   
-  Serial.println("🎉 Setup Complete!\n");
+  Serial.println("[Setup] Complete\n");
 }
 
 void loop()
 {
-  if (check_info_File(1)) {
-    if (!Wifi_reconnect()) {
-      Webserver_stop();
-    }
-    // CoreIOT được xử lý trong CORE_IOT_task, không gọi ở đây
-  }
+  // Keep webserver running
   Webserver_reconnect();
   
-  // Yield để các task khác chạy và OTA hoạt động ổn định
+  // Check WiFi status periodically
+  static unsigned long lastWifiCheck = 0;
+  if (millis() - lastWifiCheck > 30000) {  // Every 30 seconds
+    lastWifiCheck = millis();
+    
+    if (check_info_File(1)) {  // If we have credentials
+      if (WiFi.status() != WL_CONNECTED) {
+        Wifi_reconnect();
+      }
+    }
+  }
+  
   delay(10);
 }

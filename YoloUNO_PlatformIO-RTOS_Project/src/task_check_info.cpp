@@ -3,9 +3,8 @@
 void Load_info_File()
 {
   File file = LittleFS.open("/info.dat", "r");
-  if (!file)
-  {
-    Serial.println("ℹ️ No config file found - using defaults");
+  if (!file) {
+    Serial.println("[Config] No config file found");
     return;
   }
   
@@ -13,14 +12,11 @@ void Load_info_File()
   DeserializationError error = deserializeJson(doc, file);
   file.close();
   
-  if (error)
-  {
-    Serial.print(F("❌ deserializeJson() failed: "));
-    Serial.println(error.c_str());
+  if (error) {
+    Serial.println("[Config] Parse error");
     return;
   }
   
-  // Đọc an toàn - kiểm tra null trước khi gán
   if (doc.containsKey("WIFI_SSID") && !doc["WIFI_SSID"].isNull()) {
     WIFI_SSID = doc["WIFI_SSID"].as<String>();
   }
@@ -37,8 +33,10 @@ void Load_info_File()
     CORE_IOT_PORT = doc["CORE_IOT_PORT"].as<int>();
   }
   
-  Serial.println("✅ Config loaded successfully");
-  Serial.println("📡 WiFi SSID: " + (WIFI_SSID.isEmpty() ? "(empty)" : WIFI_SSID));
+  Serial.println("[Config] Loaded OK");
+  if (!WIFI_SSID.isEmpty()) {
+    Serial.printf("[Config] WiFi SSID: %s\n", WIFI_SSID.c_str());
+  }
 }
 
 void Delete_info_File()
@@ -52,9 +50,6 @@ void Delete_info_File()
 
 void Save_info_File(String wifi_ssid, String wifi_pass, String core_iot_token, String core_iot_server, String core_iot_port)
 {
-  Serial.println(wifi_ssid);
-  Serial.println(wifi_pass);
-
   DynamicJsonDocument doc(4096);
   doc["WIFI_SSID"] = wifi_ssid;
   doc["WIFI_PASS"] = wifi_pass;
@@ -68,96 +63,92 @@ void Save_info_File(String wifi_ssid, String wifi_pass, String core_iot_token, S
     serializeJson(doc, configFile);
     configFile.close();
   }
-  else
-  {
-    Serial.println("Unable to save the configuration.");
-  }
   ESP.restart();
 }
 
 bool check_info_File(bool check)
 {
-  static bool wifi_logged = false;
+  static bool initialized = false;
+  static bool has_wifi_creds = false;
   
+  // First call - initialize everything
   if (!check)
   {
     if (!LittleFS.begin(true))
     {
-      Serial.println("❌ Lỗi khởi động LittleFS!");
+      Serial.println("[LittleFS] Init failed!");
       return false;
     }
+    Serial.println("[LittleFS] Init OK");
     
-    // 🔧 DEBUG: Uncomment dòng dưới để xóa config nếu bị lỗi
-    // LittleFS.remove("/info.dat"); Serial.println("🗑️ Config cleared!");
-    
+    // Load config from file
     Load_info_File();
+    
+    // Always start AP first
     startAP();
-    wifi_logged = false;
+    
+    // Check if we have WiFi credentials
+    has_wifi_creds = !WIFI_SSID.isEmpty();
+    initialized = true;
+    
+    return has_wifi_creds;
   }
   
-  if (!WIFI_SSID.isEmpty() && !WIFI_PASS.isEmpty())
-  {
-    if (!wifi_logged) {
-      Serial.println("📡 WiFi credentials found - connecting to home WiFi...");
-      wifi_logged = true;
-    }
-    return true;
-  }
-  
-  if (!wifi_logged) {
-    Serial.println("ℹ️ No WiFi credentials - AP-only mode");
-    wifi_logged = true;
-  }
-  return false;
+  // Subsequent calls - just return cached result
+  return has_wifi_creds;
 }
 
-// Save only WiFi credentials
 void Save_wifi_File(String wifi_ssid, String wifi_pass)
 {
   DynamicJsonDocument doc(4096);
   
+  // Read existing config first
   File file = LittleFS.open("/info.dat", "r");
   if (file) {
     deserializeJson(doc, file);
     file.close();
   }
   
+  // Update WiFi fields
   doc["WIFI_SSID"] = wifi_ssid;
   doc["WIFI_PASS"] = wifi_pass;
   
+  // Save back
   File configFile = LittleFS.open("/info.dat", "w");
   if (configFile) {
     serializeJson(doc, configFile);
     configFile.close();
-    Serial.println("✅ WiFi config saved");
-  } else {
-    Serial.println("❌ Failed to save WiFi config");
+    Serial.println("[Config] WiFi saved, restarting...");
   }
+  
+  delay(500);
   ESP.restart();
 }
 
-// Save only CoreIOT credentials
 void Save_coreiot_File(String core_iot_token, String core_iot_server, String core_iot_port)
 {
   DynamicJsonDocument doc(4096);
   
+  // Read existing config first
   File file = LittleFS.open("/info.dat", "r");
   if (file) {
     deserializeJson(doc, file);
     file.close();
   }
   
+  // Update CoreIOT fields
   doc["CORE_IOT_TOKEN"] = core_iot_token;
   doc["CORE_IOT_SERVER"] = core_iot_server;
   doc["CORE_IOT_PORT"] = core_iot_port.toInt();
   
+  // Save back
   File configFile = LittleFS.open("/info.dat", "w");
   if (configFile) {
     serializeJson(doc, configFile);
     configFile.close();
-    Serial.println("✅ CoreIOT config saved");
-  } else {
-    Serial.println("❌ Failed to save CoreIOT config");
+    Serial.println("[Config] CoreIOT saved, restarting...");
   }
+  
+  delay(500);
   ESP.restart();
 }

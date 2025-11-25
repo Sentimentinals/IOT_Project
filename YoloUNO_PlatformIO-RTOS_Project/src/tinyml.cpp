@@ -8,21 +8,20 @@ namespace
     tflite::MicroInterpreter *interpreter = nullptr;
     TfLiteTensor *input = nullptr;
     TfLiteTensor *output = nullptr;
-    constexpr int kTensorArenaSize = 8 * 1024; // Adjust size based on your model
+    constexpr int kTensorArenaSize = 8 * 1024;
     uint8_t tensor_arena[kTensorArenaSize];
-} // namespace
+}
 
 void setupTinyML()
 {
-    Serial.println("TensorFlow Lite Init....");
+    Serial.println("[TinyML] Initializing...");
     static tflite::MicroErrorReporter micro_error_reporter;
     error_reporter = &micro_error_reporter;
 
-    model = tflite::GetModel(dht_anomaly_model_tflite); // g_model_data is from model_data.h
+    model = tflite::GetModel(dht_anomaly_model_tflite);
     if (model->version() != TFLITE_SCHEMA_VERSION)
     {
-        error_reporter->Report("Model provided is schema version %d, not equal to supported version %d.",
-                               model->version(), TFLITE_SCHEMA_VERSION);
+        error_reporter->Report("Model version mismatch");
         return;
     }
 
@@ -41,21 +40,25 @@ void setupTinyML()
     input = interpreter->input(0);
     output = interpreter->output(0);
 
-    Serial.println("TensorFlow Lite Micro initialized on ESP32.");
+    Serial.println("[TinyML] Ready");
 }
 
 void tiny_ml_task(void *pvParameters)
 {
-
     setupTinyML();
+    
+    SensorData_t sensorData = {0};
 
     while (1)
     {
+        // Read sensor data from Queue
+        if (xSensorDataQueue != NULL) {
+            xQueuePeek(xSensorDataQueue, &sensorData, pdMS_TO_TICKS(100));
+        }
 
-        // Prepare input data (e.g., sensor readings)
-        // For a simple example, let's assume a single float input
-        input->data.f[0] = glob_temperature;
-        input->data.f[1] = glob_humidity;
+        // Prepare input data from queue
+        input->data.f[0] = sensorData.temperature;
+        input->data.f[1] = sensorData.humidity;
 
         // Run inference
         TfLiteStatus invoke_status = interpreter->Invoke();
@@ -67,8 +70,7 @@ void tiny_ml_task(void *pvParameters)
 
         // Get and process output
         float result = output->data.f[0];
-        Serial.print("Inference result: ");
-        Serial.println(result);
+        Serial.printf("[TinyML] Result: %.2f\n", result);
 
         vTaskDelay(5000);
     }

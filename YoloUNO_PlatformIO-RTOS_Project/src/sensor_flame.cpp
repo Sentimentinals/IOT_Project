@@ -1,51 +1,58 @@
 #include "sensor_flame.h" 
 #include "task_webserver.h"
 
-void sensor_flame_task(void *pvParameters){
-    Serial.println(">>> Task sensor_flame (Flame Sensor): Started");
+/**
+ * FLAME SENSOR TASK
+ * Fire Alert has HIGHEST priority - overrides all other states
+ */
 
-    // Configure analog input pin for flame detection
+void sensor_flame_task(void *pvParameters) {
+    Serial.println("[Flame] Task started");
+
     pinMode(FLAME_SENSOR_PIN, INPUT);
     
-    while (1){
-        // Read analog value for flame detection (0-4095 ADC)
-        int rawValue = analogRead(FLAME_SENSOR_PIN);
+    bool lastFlameState = false;
+    SensorData_t sensorData = {0};
     
-        // Detect flame if signal is BELOW threshold (inverted logic)
-        // Most flame sensors: LOW signal = flame detected, HIGH = safe
-        const int FLAME_THRESHOLD = 2000;  // Adjust this value (0-4095)
-        bool flameDetected = (rawValue < FLAME_THRESHOLD);  // Changed from > to <
+    while (1) {
+        int rawValue = analogRead(FLAME_SENSOR_PIN);
+        const int FLAME_THRESHOLD = 2000;
+        bool flameDetected = (rawValue < FLAME_THRESHOLD);
 
-        // ✅ Update global variable with mutex protection
-        if (xSemaphoreTake(xMutex, pdMS_TO_TICKS(100)) == pdTRUE) 
-        {
-            glob_flame_detected = flameDetected;
-            xSemaphoreGive(xMutex);
+        sensorData.flame_detected = flameDetected;
+        
+        // State change detection
+        if (flameDetected != lastFlameState) {
+            lastFlameState = flameDetected;
+            
+            if (flameDetected) {
+                Serial.println("[Flame] FIRE DETECTED!");
+                updateSystemState(STATE_FIRE_ALERT);
+            } else {
+                Serial.println("[Flame] Fire cleared");
+            }
         }
         
-        // ✅ Create JSON for WebSocket (send boolean)
+        // Update queue
+        if (xSensorDataQueue != NULL) {
+            SensorData_t currentData;
+            if (xQueuePeek(xSensorDataQueue, &currentData, 0) == pdTRUE) {
+                currentData.flame_detected = flameDetected;
+                xQueueOverwrite(xSensorDataQueue, &currentData);
+            }
+        }
+        
+        // Send to WebSocket
         String jsonString = "";
         StaticJsonDocument<128> doc;
         doc["type"] = "sensor"; 
-        doc["flame"] = flameDetected;  // Send true/false
+        doc["flame"] = flameDetected;
         serializeJson(doc, jsonString);
         
-        // Send to webserver
         if (jsonString.length() > 0) {
             Webserver_sendata(jsonString); 
         }
 
-        // Serial output
-        Serial.print("Flame - RAW: ");
-        Serial.print(rawValue);
-        Serial.print(" → Status: ");
-        if (flameDetected) {
-            Serial.println("⚠️ FIRE DETECTED!");
-        } else {
-            Serial.println("✓ Safe");
-        }
-
-        // Wait 500ms (faster update for safety)
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(300));
     }
 }
