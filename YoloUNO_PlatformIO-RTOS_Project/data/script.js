@@ -84,6 +84,7 @@ function onLoad(event) {
     loadRelays();      // Load saved relays from localStorage
     renderRelays();    // Render relay cards
     loadNotifications();
+    updateActiveDevicesCount();  // Update active devices count on load
 }
 
 function onOpen(event) {
@@ -392,6 +393,7 @@ function toggleRelay(id) {
         Send_Data(relayJSON);
         saveRelaysToStorage();
         renderRelays();
+        updateActiveDevicesCount();  // Update active count
     }
 }
 
@@ -409,8 +411,31 @@ function confirmDelete() {
     saveRelaysToStorage();
     renderRelays();
     closeConfirmDelete();
+    updateActiveDevicesCount();  // Update active count
 }
 
+
+// ==================== ACTIVE DEVICES COUNTER ====================
+// Count devices that are currently ON (NeoLED, Fan, Pump + Custom Relays)
+function updateActiveDevicesCount() {
+    let activeCount = 0;
+    
+    // Count main devices
+    if (neoLedState) activeCount++;
+    if (fanState) activeCount++;
+    if (pumpState) activeCount++;
+    
+    // Count custom relays that are ON
+    relayList.forEach(relay => {
+        if (relay.state) activeCount++;
+    });
+    
+    // Update display
+    const totalDevicesEl = document.getElementById('totalDevices');
+    if (totalDevicesEl) {
+        totalDevicesEl.textContent = activeCount;
+    }
+}
 
 // ==================== NEO LED CONTROL ====================
 let neoLedState = true; // Mặc định BẬT
@@ -452,6 +477,9 @@ function updateNeoLedButton(state) {
         statusText.textContent = state ? "ON" : "OFF";
         statusText.style.color = state ? "#10B981" : "var(--text-muted)";
     }
+    
+    // Update active devices count
+    updateActiveDevicesCount();
 }
 
 
@@ -495,6 +523,9 @@ function updateFanButton(state) {
         statusText.textContent = state ? "ON" : "OFF";
         statusText.style.color = state ? "#10B981" : "var(--text-muted)";
     }
+    
+    // Update active devices count
+    updateActiveDevicesCount();
 }
 
 
@@ -554,6 +585,9 @@ function updatePumpButton(state, autoMode) {
             modeBadge.classList.remove("auto");
         }
     }
+    
+    // Update active devices count
+    updateActiveDevicesCount();
 }
 
 

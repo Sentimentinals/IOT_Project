@@ -256,7 +256,7 @@ void temp_humi_oled(void *pvParameters) {
     vTaskDelay(pdMS_TO_TICKS(1500));
 
     SensorData_t sensorData = {0};
-    sensorData.neoled_enabled = true;
+    // NOTE: neoled_enabled is managed by web interface, not by this task
     
     bool sensorReady = false;  // Wait for valid readings before sending alerts
     

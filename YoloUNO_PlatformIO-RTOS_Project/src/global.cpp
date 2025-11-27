@@ -288,6 +288,8 @@ SystemState_t getSystemState() {
 /**
  * Send sensor data to queue (OLED task uses this for temp/humidity)
  * Now uses mutex protection
+ * NOTE: Only updates temp/humidity - control flags (neoled, fan, pump) 
+ *       are managed separately by their respective handlers
  */
 void sendSensorData(SensorData_t *data) {
     if (data == NULL) return;
@@ -299,8 +301,8 @@ void sendSensorData(SensorData_t *data) {
     if (data->humidity > 0) {
         updateSensorField_Humidity(data->humidity);
     }
-    // neoled_enabled is also set by OLED task
-    updateSensorField_NeoLed(data->neoled_enabled);
+    // NOTE: Do NOT update neoled_enabled here - it's controlled by web interface
+    // updateSensorField_NeoLed() is called only from task_handler when user toggles
 }
 
 /**
