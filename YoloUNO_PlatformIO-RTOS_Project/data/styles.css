@@ -719,6 +719,61 @@ header p {
   color: var(--text-muted);
 }
 
+/* Data Export Improvements */
+.export-description {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.csv-stats {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.csv-stat {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px 20px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 100px;
+}
+
+.csv-stat .stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.csv-stat .stat-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.csv-columns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.column-tag {
+  background: rgba(46, 147, 250, 0.15);
+  color: var(--primary-blue);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-family: 'Consolas', 'Monaco', monospace;
+  border: 1px solid rgba(46, 147, 250, 0.3);
+}
+
 /* === 13. SECTIONS === */
 .section {
   display: none;
@@ -1768,3 +1823,295 @@ body:not(.emergency-alert) .metric-value {
 
 /* === WARNING/CRITICAL STATE - No top bar, just subtle effects === */
 /* Removed top bar indicators as per user request */
+
+/* === 20. MAIN DEVICES GRID (Fan & Pump) === */
+.main-devices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.main-device-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: var(--glass-shadow);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.main-device-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-blue), var(--primary-cyan));
+  transition: all 0.3s ease;
+}
+
+.main-device-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 50px rgba(46, 147, 250, 0.35);
+}
+
+/* NeoPixel Card specific */
+.neopixel-card::before {
+  background: linear-gradient(90deg, #F59E0B, #EF4444, #8B5CF6, #06B6D4);
+  background-size: 300% 100%;
+  animation: rainbowGradient 3s ease infinite;
+}
+
+@keyframes rainbowGradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.neopixel-card:hover::before {
+  background: linear-gradient(90deg, #FBBF24, #F87171, #A78BFA, #22D3EE);
+  background-size: 300% 100%;
+}
+
+/* Fan Card specific */
+.fan-card::before {
+  background: linear-gradient(90deg, #06B6D4, #0EA5E9);
+}
+
+.fan-card:hover::before {
+  background: linear-gradient(90deg, #22D3EE, #38BDF8);
+}
+
+/* Pump Card specific */
+.pump-card::before {
+  background: linear-gradient(90deg, #10B981, #14B8A6);
+}
+
+.pump-card:hover::before {
+  background: linear-gradient(90deg, #34D399, #2DD4BF);
+}
+
+.device-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.device-icon-large {
+  font-size: 3rem;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.device-info h3 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.device-gpio {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-family: var(--font-numbers);
+}
+
+.device-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.status-label {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.status-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.device-mode {
+  margin-bottom: 20px;
+}
+
+.mode-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(99, 102, 241, 0.2);
+  color: #818CF8;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+.mode-badge.auto {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34D399;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.device-toggle-btn {
+  width: 100%;
+  padding: 16px 24px;
+  border: none;
+  border-radius: 14px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.device-toggle-btn .btn-icon {
+  font-size: 1.4rem;
+}
+
+.device-toggle-btn.off {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.device-toggle-btn.off:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.device-toggle-btn.on {
+  background: linear-gradient(135deg, var(--primary-blue), var(--primary-cyan));
+  color: white;
+  border: 2px solid transparent;
+  box-shadow: 0 6px 20px rgba(46, 147, 250, 0.5);
+}
+
+.device-toggle-btn.on:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 28px rgba(46, 147, 250, 0.7);
+}
+
+.device-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 16px;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* Relay Section */
+.relay-section {
+  margin-top: 20px;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Device card improvements for relay section */
+.device-card .device-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+.device-card h3 {
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.device-card p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  font-family: var(--font-numbers);
+}
+
+.device-card .toggle-btn {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.delete-icon {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: all 0.3s;
+}
+
+.delete-icon:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+/* Animation for device cards */
+.main-device-card {
+  animation: fadeUp 0.5s ease-out;
+  animation-fill-mode: both;
+}
+
+.fan-card {
+  animation-delay: 0.1s;
+}
+
+.pump-card {
+  animation-delay: 0.2s;
+}
+
+/* Status indicators */
+.device-toggle-btn.on .btn-text::after {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #10B981;
+  border-radius: 50%;
+  margin-left: 8px;
+  animation: pulse 1.5s infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .main-devices-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .main-device-card {
+    padding: 20px;
+  }
+  
+  .device-icon-large {
+    font-size: 2.5rem;
+  }
+  
+  .device-info h3 {
+    font-size: 1.2rem;
+  }
+}

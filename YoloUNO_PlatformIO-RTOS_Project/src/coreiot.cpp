@@ -94,3 +94,4 @@ void coreiot_task(void *pvParameters){
         vTaskDelay(10000);
     }
 }
+

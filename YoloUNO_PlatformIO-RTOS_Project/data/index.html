@@ -42,39 +42,40 @@
   <div class="main-content">
 
     <!-- HOME SECTION -->
-    <header>
-      <div>
-        <h1>Environment Dashboard</h1>
-        <p>Real-time monitoring and control center</p>
-      </div>
-      <div style="display: flex; gap: 10px; align-items: center;">
-        <!-- Notification Bell -->
-        <div class="notification-bell-container">
-          <button class="notification-bell" onclick="toggleNotificationPanel()" title="Notifications">
-            <span class="bell-icon">🔔</span>
-            <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
-          </button>
+    <div id="home" class="section" style="display:block;">
+      <header>
+        <div>
+          <h1>Environment Dashboard</h1>
+          <p>Real-time monitoring and control center</p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <!-- Notification Bell -->
+          <div class="notification-bell-container">
+            <button class="notification-bell" onclick="toggleNotificationPanel()" title="Notifications">
+              <span class="bell-icon">🔔</span>
+              <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            </button>
 
-          <!-- Notification Panel (Dropdown) -->
-          <div class="notification-panel" id="notificationPanel" style="display: none;">
-            <div class="notification-panel-header">
-              <h3>Notifications</h3>
-              <button class="clear-all-btn" onclick="clearAllNotifications()">Clear All</button>
-            </div>
-            <div class="notification-list" id="notificationList">
-              <div class="empty-notifications">No notifications yet</div>
+            <!-- Notification Panel (Dropdown) -->
+            <div class="notification-panel" id="notificationPanel" style="display: none;">
+              <div class="notification-panel-header">
+                <h3>Notifications</h3>
+                <button class="clear-all-btn" onclick="clearAllNotifications()">Clear All</button>
+              </div>
+              <div class="notification-list" id="notificationList">
+                <div class="empty-notifications">No notifications yet</div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <!-- SYSTEM OVERVIEW -->
+      <!-- SYSTEM OVERVIEW -->
     <div class="system-overview">
       <div class="overview-metric" style="--card-index: 0">
         <div class="metric-icon pulse-icon">📡</div>
         <div class="metric-content">
-          <div class="metric-value" id="totalDevices">7</div>
+          <div class="metric-value" id="totalDevices">5</div>
           <div class="metric-label">Active Devices</div>
         </div>
       </div>
@@ -147,22 +148,6 @@
       <!-- COMPACT SENSOR GRID -->
       <div class="compact-grid">
         <div class="compact-card" style="--card-index: 5">
-          <h3>💡 LED NeoPixel</h3>
-          <button id="neoLedBtn" class="toggle-btn on" onclick="toggleNeoLED()">
-            ON
-          </button>
-          <p class="card-hint">Temperature indicator</p>
-        </div>
-
-        <div class="compact-card" style="--card-index: 6">
-          <h3>🌀 Fan</h3>
-          <button id="fanBtn" class="toggle-btn off" onclick="toggleFan()">
-            OFF
-          </button>
-          <p class="card-hint">Auto at 28°C</p>
-        </div>
-
-        <div class="compact-card" style="--card-index: 7">
           <h3>☀️ Light</h3>
           <div class="compact-value">
             <span id="light" class="value">--</span>
@@ -170,7 +155,7 @@
           </div>
         </div>
 
-        <div class="compact-card" style="--card-index: 8">
+        <div class="compact-card" style="--card-index: 6">
           <h3>💧 Soil Moisture</h3>
           <div class="compact-value">
             <span id="moisture" class="value">--</span>
@@ -178,7 +163,7 @@
           </div>
         </div>
 
-        <div class="compact-card flame-card" id="flameCard" style="--card-index: 9">
+        <div class="compact-card flame-card" id="flameCard" style="--card-index: 7">
           <h3>🔥 Flame Sensor</h3>
           <div class="flame-status" id="flame">
             <span class="flame-icon">✓</span>
@@ -191,6 +176,31 @@
     <!-- CSV DATA CONTROLS -->
     <div class="data-controls">
       <h3>📊 Data Export</h3>
+      <p class="export-description">Export sensor data including temperature, humidity, light, moisture, and system alerts.</p>
+      <div class="csv-stats" id="csvStats">
+        <div class="csv-stat">
+          <span class="stat-label">Records</span>
+          <span class="stat-value" id="csvRecords">--</span>
+        </div>
+        <div class="csv-stat">
+          <span class="stat-label">File Size</span>
+          <span class="stat-value" id="csvSize">--</span>
+        </div>
+        <div class="csv-stat">
+          <span class="stat-label">Status</span>
+          <span class="stat-value" id="csvStatus">Loading...</span>
+        </div>
+      </div>
+      <div class="csv-columns">
+        <span class="column-tag">datetime</span>
+        <span class="column-tag">temperature</span>
+        <span class="column-tag">humidity</span>
+        <span class="column-tag">light_level</span>
+        <span class="column-tag">moisture</span>
+        <span class="column-tag">flame</span>
+        <span class="column-tag">water_pump</span>
+        <span class="column-tag">state</span>
+      </div>
       <div class="controls-row">
         <button class="csv-btn download-btn" onclick="downloadCSV()">
           📥 Download CSV
@@ -198,22 +208,96 @@
         <button class="csv-btn clear-btn" onclick="clearCSV()">
           🗑️ Clear Data
         </button>
-        <div id="csvInfo" class="csv-info">
-          <span id="csvStatus">Loading...</span>
-        </div>
       </div>
     </div>
-  </div>
+    </div>
+    <!-- END HOME SECTION -->
 
-  <!-- DEVICES SECTION -->
-  <div id="device" class="section" style="display:none;">
+    <!-- DEVICES SECTION -->
+    <div id="device" class="section" style="display:none;">
     <header>
-      <h1>Relay Control</h1>
-      <p>Manage and control connected relays.</p>
+      <h1>Device Control</h1>
+      <p>Manage and control connected devices</p>
     </header>
 
-    <div class="device-list" id="relayContainer">
-      <!-- Relays loaded by script.js -->
+    <!-- MAIN DEVICES (NeoPixel, Fan & Pump) -->
+    <div class="main-devices-grid">
+      <!-- NeoPixel LED Control Card -->
+      <div class="main-device-card neopixel-card">
+        <div class="device-header">
+          <div class="device-icon-large">💡</div>
+          <div class="device-info">
+            <h3>LED NeoPixel</h3>
+            <p class="device-gpio">GPIO 48</p>
+          </div>
+        </div>
+        <div class="device-status">
+          <span class="status-label">Status:</span>
+          <span class="status-value" id="neoLedStatusText">ON</span>
+        </div>
+        <div class="device-mode">
+          <span class="mode-badge">Indicator</span>
+        </div>
+        <button id="neoLedBtn" class="device-toggle-btn on" onclick="toggleNeoLED()">
+          <span class="btn-icon">⏻</span>
+          <span class="btn-text">ON</span>
+        </button>
+        <p class="device-hint">Temperature color indicator</p>
+      </div>
+
+      <!-- Fan Control Card -->
+      <div class="main-device-card fan-card">
+        <div class="device-header">
+          <div class="device-icon-large">🌀</div>
+          <div class="device-info">
+            <h3>Cooling Fan</h3>
+            <p class="device-gpio">GPIO 14</p>
+          </div>
+        </div>
+        <div class="device-status">
+          <span class="status-label">Status:</span>
+          <span class="status-value" id="fanStatusText">OFF</span>
+        </div>
+        <div class="device-mode">
+          <span class="mode-badge" id="fanModeBadge">Manual</span>
+        </div>
+        <button id="fanBtn" class="device-toggle-btn off" onclick="toggleFan()">
+          <span class="btn-icon">⏻</span>
+          <span class="btn-text">OFF</span>
+        </button>
+        <p class="device-hint">Auto activates at 28°C</p>
+      </div>
+
+      <!-- Water Pump Control Card -->
+      <div class="main-device-card pump-card">
+        <div class="device-header">
+          <div class="device-icon-large">💦</div>
+          <div class="device-info">
+            <h3>Water Pump</h3>
+            <p class="device-gpio">GPIO 38</p>
+          </div>
+        </div>
+        <div class="device-status">
+          <span class="status-label">Status:</span>
+          <span class="status-value" id="pumpStatusText">OFF</span>
+        </div>
+        <div class="device-mode">
+          <span class="mode-badge" id="pumpModeBadge">Auto</span>
+        </div>
+        <button id="pumpBtn" class="device-toggle-btn off" onclick="togglePump()">
+          <span class="btn-icon">⏻</span>
+          <span class="btn-text">OFF</span>
+        </button>
+        <p class="device-hint">Auto: ON &lt;30% | OFF &gt;60%</p>
+      </div>
+    </div>
+
+    <!-- RELAY SECTION -->
+    <div class="relay-section">
+      <h2 class="section-title">⚡ Custom Relays</h2>
+      <div class="device-list" id="relayContainer">
+        <!-- Relays loaded by script.js -->
+      </div>
     </div>
 
     <button class="add-relay-btn" onclick="openAddRelayDialog()">
@@ -221,8 +305,8 @@
     </button>
   </div>
 
-  <!-- INFO SECTION - FIXED: Now shows actual content -->
-  <div id="info" class="section" style="display:none;">
+    <!-- INFO SECTION -->
+    <div id="info" class="section" style="display:none;">
     <header>
       <h1>Device Information</h1>
       <p>System and network details</p>
@@ -263,8 +347,8 @@
     </div>
   </div>
 
-  <!-- SETTINGS SECTION - SEPARATED: WiFi and CoreIOT -->
-  <div id="settings" class="section settings-section" style="display:none;">
+    <!-- SETTINGS SECTION -->
+    <div id="settings" class="section settings-section" style="display:none;">
     
     <!-- WiFi Settings Card -->
     <div class="settings-card">
@@ -320,6 +404,11 @@
     </div>
 
   </div>
+  <!-- END SETTINGS -->
+
+  </div>
+  <!-- END MAIN CONTENT -->
+
   <!-- DIALOGS -->
   <div id="addRelayDialog" class="dialog-overlay" style="display:none;">
     <div class="dialog fade-in">

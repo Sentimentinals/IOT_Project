@@ -17,6 +17,7 @@ typedef struct {
     bool flame_detected;
     bool fan_enabled;
     bool neoled_enabled;
+    bool water_pump_enabled;
 } SensorData_t;
 
 // ==================== SYSTEM STATE ENUM ====================
@@ -53,6 +54,9 @@ extern SemaphoreHandle_t xBinarySemaphoreInternet;
 // Mutex cho I2C bus (shared giữa OLED và các I2C devices)
 extern SemaphoreHandle_t xI2CMutex;
 
+// Mutex cho Queue access (CRITICAL - prevents race conditions)
+extern SemaphoreHandle_t xQueueMutex;
+
 // Binary Semaphores cho System States
 extern SemaphoreHandle_t xSemaphoreNormal;
 extern SemaphoreHandle_t xSemaphoreWarning;
@@ -70,7 +74,18 @@ void updateSystemState(SystemState_t newState);
 SystemState_t getSystemState();
 const char* getWarningReason(float temp, float humidity);
 
-// Sensor data access functions (thread-safe)
+// Thread-safe sensor data access functions
+void updateSensorField_Light(float value);
+void updateSensorField_Moisture(float value);
+void updateSensorField_Flame(bool value);
+void updateSensorField_Temperature(float value);
+void updateSensorField_Humidity(float value);
+void updateSensorField_WaterPump(bool value);
+void updateSensorField_NeoLed(bool value);
+void updateSensorField_Fan(bool value);
+bool getSensorData(SensorData_t *data);
+
+// Legacy functions (for OLED task compatibility)
 void sendSensorData(SensorData_t *data);
 bool receiveSensorData(SensorData_t *data, TickType_t timeout);
 

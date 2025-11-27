@@ -75,3 +75,4 @@ void tiny_ml_task(void *pvParameters)
         vTaskDelay(5000);
     }
 }
+

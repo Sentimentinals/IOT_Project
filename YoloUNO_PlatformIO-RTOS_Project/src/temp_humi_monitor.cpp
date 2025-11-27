@@ -55,3 +55,4 @@ void temp_humi_monitor(void *pvParameters){
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
+

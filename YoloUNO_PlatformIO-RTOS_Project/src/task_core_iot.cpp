@@ -1,4 +1,5 @@
 #include "task_core_iot.h"
+#include "sensor_water_pump.h"
 
 constexpr uint32_t MAX_MESSAGE_SIZE = 1024U;
 
@@ -18,6 +19,7 @@ constexpr std::array<const char *, 2U> SHARED_ATTRIBUTES_LIST = {
 
 static bool fanEnabled = false;
 static bool neoledEnabled = true;
+static bool waterPumpEnabled = false;
 
 void processSharedAttributes(const Shared_Attribute_Data &data)
 {
@@ -34,13 +36,8 @@ RPC_Response setFanStatus(const RPC_Data &data) {
     pinMode(14, OUTPUT);
     digitalWrite(14, newState ? HIGH : LOW);
     
-    if (xSensorDataQueue != NULL) {
-        SensorData_t sensorData;
-        if (xQueuePeek(xSensorDataQueue, &sensorData, 0) == pdTRUE) {
-            sensorData.fan_enabled = newState;
-            xQueueOverwrite(xSensorDataQueue, &sensorData);
-        }
-    }
+    // Thread-safe update
+    updateSensorField_Fan(newState);
     
     Serial.printf("[CoreIOT] Fan: %s\n", newState ? "ON" : "OFF");
     return RPC_Response("setFanStatus", newState);
@@ -50,21 +47,28 @@ RPC_Response setLedEnabled(const RPC_Data &data) {
     bool newState = data;
     neoledEnabled = newState;
     
-    if (xSensorDataQueue != NULL) {
-        SensorData_t sensorData;
-        if (xQueuePeek(xSensorDataQueue, &sensorData, 0) == pdTRUE) {
-            sensorData.neoled_enabled = newState;
-            xQueueOverwrite(xSensorDataQueue, &sensorData);
-        }
-    }
+    // Thread-safe update
+    updateSensorField_NeoLed(newState);
     
     Serial.printf("[CoreIOT] NeoLed: %s\n", newState ? "ON" : "OFF");
     return RPC_Response("setLedEnabled", newState);
 }
 
-const std::array<RPC_Callback, 2U> callbacks = {
+RPC_Response setWaterPumpStatus(const RPC_Data &data) {
+    bool newState = data;
+    waterPumpEnabled = newState;
+    
+    // Use dedicated function for proper manual mode handling
+    setWaterPumpManual(newState);
+    
+    Serial.printf("[CoreIOT] Water Pump: %s (manual mode)\n", newState ? "ON" : "OFF");
+    return RPC_Response("setWaterPumpStatus", newState);
+}
+
+const std::array<RPC_Callback, 3U> callbacks = {
     RPC_Callback{"setFanStatus", setFanStatus},
-    RPC_Callback{"setLedEnabled", setLedEnabled}
+    RPC_Callback{"setLedEnabled", setLedEnabled},
+    RPC_Callback{"setWaterPumpStatus", setWaterPumpStatus}
 };
 
 const Shared_Attribute_Callback attributes_callback(&processSharedAttributes, SHARED_ATTRIBUTES_LIST.cbegin(), SHARED_ATTRIBUTES_LIST.cend());
@@ -158,9 +162,8 @@ void CORE_IOT_task(void *pvParameters)
             {
                 lastPublish = now;
 
-                if (xSensorDataQueue != NULL) {
-                    xQueuePeek(xSensorDataQueue, &sensorData, pdMS_TO_TICKS(100));
-                }
+                // Thread-safe read
+                getSensorData(&sensorData);
 
                 if (tb.connected())
                 {
@@ -171,6 +174,7 @@ void CORE_IOT_task(void *pvParameters)
                     tb.sendTelemetryData("flame", sensorData.flame_detected ? 1 : 0);
                     tb.sendTelemetryData("fanStatus", sensorData.fan_enabled ? 1 : 0);
                     tb.sendTelemetryData("neoLedEnabled", sensorData.neoled_enabled ? 1 : 0);
+                    tb.sendTelemetryData("waterPumpStatus", sensorData.water_pump_enabled ? 1 : 0);
                     tb.sendTelemetryData("systemState", (int)getSystemState());
                 }
             }

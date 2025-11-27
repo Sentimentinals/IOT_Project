@@ -28,6 +28,7 @@ QueueHandle_t xSensorDataQueue = NULL;
 SemaphoreHandle_t xBinarySemaphoreInternet = NULL;
 SemaphoreHandle_t xI2CMutex = NULL;
 SemaphoreHandle_t xStateMutex = NULL;
+SemaphoreHandle_t xQueueMutex = NULL;  // NEW: Mutex for queue access
 
 SemaphoreHandle_t xSemaphoreNormal = NULL;
 SemaphoreHandle_t xSemaphoreWarning = NULL;
@@ -46,6 +47,7 @@ void initRTOSPrimitives() {
     xBinarySemaphoreInternet = xSemaphoreCreateBinary();
     xI2CMutex = xSemaphoreCreateMutex();
     xStateMutex = xSemaphoreCreateMutex();
+    xQueueMutex = xSemaphoreCreateMutex();  // NEW: Create queue mutex
     
     xSemaphoreNormal = xSemaphoreCreateBinary();
     xSemaphoreWarning = xSemaphoreCreateBinary();
@@ -53,7 +55,8 @@ void initRTOSPrimitives() {
     xSemaphoreFireAlert = xSemaphoreCreateBinary();
     
     // Verify all created successfully
-    if (xBinarySemaphoreInternet == NULL || xI2CMutex == NULL || xStateMutex == NULL) {
+    if (xBinarySemaphoreInternet == NULL || xI2CMutex == NULL || 
+        xStateMutex == NULL || xQueueMutex == NULL) {
         Serial.println("[RTOS] ERROR: Semaphore creation failed!");
     }
     
@@ -72,46 +75,142 @@ void initRTOSPrimitives() {
     Serial.println("[RTOS] Primitives initialized OK");
 }
 
+// ==================== THREAD-SAFE SENSOR FIELD UPDATES ====================
+// Each function uses mutex to safely update ONE field without race conditions
+
+void updateSensorField_Light(float value) {
+    if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
+    
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        SensorData_t data;
+        if (xQueuePeek(xSensorDataQueue, &data, 0) == pdTRUE) {
+            data.light_level = value;
+            xQueueOverwrite(xSensorDataQueue, &data);
+        }
+        xSemaphoreGive(xQueueMutex);
+    }
+}
+
+void updateSensorField_Moisture(float value) {
+    if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
+    
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        SensorData_t data;
+        if (xQueuePeek(xSensorDataQueue, &data, 0) == pdTRUE) {
+            data.moisture_level = value;
+            xQueueOverwrite(xSensorDataQueue, &data);
+        }
+        xSemaphoreGive(xQueueMutex);
+    }
+}
+
+void updateSensorField_Flame(bool value) {
+    if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
+    
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        SensorData_t data;
+        if (xQueuePeek(xSensorDataQueue, &data, 0) == pdTRUE) {
+            data.flame_detected = value;
+            xQueueOverwrite(xSensorDataQueue, &data);
+        }
+        xSemaphoreGive(xQueueMutex);
+    }
+}
+
+void updateSensorField_Temperature(float value) {
+    if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
+    
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        SensorData_t data;
+        if (xQueuePeek(xSensorDataQueue, &data, 0) == pdTRUE) {
+            data.temperature = value;
+            xQueueOverwrite(xSensorDataQueue, &data);
+        }
+        xSemaphoreGive(xQueueMutex);
+    }
+}
+
+void updateSensorField_Humidity(float value) {
+    if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
+    
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        SensorData_t data;
+        if (xQueuePeek(xSensorDataQueue, &data, 0) == pdTRUE) {
+            data.humidity = value;
+            xQueueOverwrite(xSensorDataQueue, &data);
+        }
+        xSemaphoreGive(xQueueMutex);
+    }
+}
+
+void updateSensorField_WaterPump(bool value) {
+    if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
+    
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        SensorData_t data;
+        if (xQueuePeek(xSensorDataQueue, &data, 0) == pdTRUE) {
+            data.water_pump_enabled = value;
+            xQueueOverwrite(xSensorDataQueue, &data);
+        }
+        xSemaphoreGive(xQueueMutex);
+    }
+}
+
+void updateSensorField_NeoLed(bool value) {
+    if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
+    
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        SensorData_t data;
+        if (xQueuePeek(xSensorDataQueue, &data, 0) == pdTRUE) {
+            data.neoled_enabled = value;
+            xQueueOverwrite(xSensorDataQueue, &data);
+        }
+        xSemaphoreGive(xQueueMutex);
+    }
+}
+
+void updateSensorField_Fan(bool value) {
+    if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
+    
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        SensorData_t data;
+        if (xQueuePeek(xSensorDataQueue, &data, 0) == pdTRUE) {
+            data.fan_enabled = value;
+            xQueueOverwrite(xSensorDataQueue, &data);
+        }
+        xSemaphoreGive(xQueueMutex);
+    }
+}
+
+bool getSensorData(SensorData_t *data) {
+    if (xQueueMutex == NULL || xSensorDataQueue == NULL || data == NULL) return false;
+    
+    bool success = false;
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        success = (xQueuePeek(xSensorDataQueue, data, 0) == pdTRUE);
+        xSemaphoreGive(xQueueMutex);
+    }
+    return success;
+}
+
 // ==================== HELPER FUNCTIONS ====================
 
 /**
  * Evaluate system state based on sensor data
- * 
- * TEMPERATURE LEVELS:
- * - Cold: < 20C (Warning)
- * - Cool: 20-24C (Normal)
- * - Ideal: 25-30C (Normal - best)
- * - Hot: > 30C (Warning)
- * - Too Hot: > 35C (Critical)
- * 
- * HUMIDITY LEVELS:
- * - Too Dry: < 30% (Critical)
- * - Dry: 30-40% (Warning)
- * - Ideal: 40-60% (Normal - best)
- * - Acceptable: 60-70% (Normal)
- * - Too Humid: > 70% (Warning - mold risk)
- * 
- * Priority: Fire > Critical > Warning > Normal
  */
 SystemState_t evaluateSystemState(float temp, float humidity, bool flame) {
-    // Fire has highest priority
     if (flame) {
         return STATE_FIRE_ALERT;
     }
     
-    // Critical conditions: Too Hot (>35C) or Extremely Dry (<30%)
     if (temp > 35.0 || humidity < 30.0) {
         return STATE_CRITICAL;
     }
     
-    // Warning conditions:
-    // - Temperature: Cold (<20C) or Hot (>30C)
-    // - Humidity: Dry (<40%) or Too Humid (>70%)
     if (temp < 20.0 || temp > 30.0 || humidity < 40.0 || humidity > 70.0) {
         return STATE_WARNING;
     }
     
-    // Normal: Temperature 20-30C and Humidity 40-70%
     return STATE_NORMAL;
 }
 
@@ -119,16 +218,12 @@ SystemState_t evaluateSystemState(float temp, float humidity, bool flame) {
  * Get warning reason string based on current readings
  */
 const char* getWarningReason(float temp, float humidity) {
-    // Check critical first
     if (temp > 35.0) return "Too Hot";
     if (humidity < 30.0) return "Too Dry";
-    
-    // Then warnings
     if (temp > 30.0) return "Hot";
     if (temp < 20.0) return "Cold";
     if (humidity < 40.0) return "Dry";
     if (humidity > 70.0) return "Too Humid";
-    
     return "Check Environment";
 }
 
@@ -188,28 +283,29 @@ SystemState_t getSystemState() {
     return state;
 }
 
+// ==================== LEGACY FUNCTIONS (for OLED task) ====================
+
 /**
- * Send sensor data to queue (preserves control flags like neoled_enabled, fan_enabled)
+ * Send sensor data to queue (OLED task uses this for temp/humidity)
+ * Now uses mutex protection
  */
 void sendSensorData(SensorData_t *data) {
-    if (xSensorDataQueue != NULL && data != NULL) {
-        // Get current data to preserve control flags
-        SensorData_t currentData;
-        if (xQueuePeek(xSensorDataQueue, &currentData, 0) == pdTRUE) {
-            // Preserve control flags from current queue data
-            data->neoled_enabled = currentData.neoled_enabled;
-            data->fan_enabled = currentData.fan_enabled;
-        }
-        xQueueOverwrite(xSensorDataQueue, data);
+    if (data == NULL) return;
+    
+    // Update temperature and humidity using thread-safe functions
+    if (data->temperature > 0) {
+        updateSensorField_Temperature(data->temperature);
     }
+    if (data->humidity > 0) {
+        updateSensorField_Humidity(data->humidity);
+    }
+    // neoled_enabled is also set by OLED task
+    updateSensorField_NeoLed(data->neoled_enabled);
 }
 
 /**
  * Receive sensor data from queue
  */
 bool receiveSensorData(SensorData_t *data, TickType_t timeout) {
-    if (xSensorDataQueue != NULL && data != NULL) {
-        return xQueuePeek(xSensorDataQueue, data, timeout) == pdTRUE;
-    }
-    return false;
+    return getSensorData(data);
 }

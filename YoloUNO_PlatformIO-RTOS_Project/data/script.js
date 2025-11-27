@@ -81,7 +81,8 @@ window.addEventListener('load', onLoad);
 function onLoad(event) {
     initTheme();
     initWebSocket();
-    renderRelays();
+    loadRelays();      // Load saved relays from localStorage
+    renderRelays();    // Render relay cards
     loadNotifications();
 }
 
@@ -134,6 +135,20 @@ function onMessage(event) {
     try {
         var data = JSON.parse(event.data);
         
+        // Handle OTA update notification
+        if (data.type === "ota") {
+            if (data.status === "starting") {
+                addNotification(
+                    'info',
+                    '🔄 OTA Update',
+                    'Firmware/Filesystem update starting. Device will reboot...'
+                );
+                // Show alert to user
+                alert("⚠️ OTA Update starting!\n\nDevice will reboot. Please wait and refresh the page after ~10 seconds.");
+            }
+            return;
+        }
+        
         // Handle state alerts from ESP32
         if (data.type === "state_alert") {
             handleStateAlert(data);
@@ -157,6 +172,14 @@ function onMessage(event) {
             if (data.moisture !== undefined) {
                 const moistureEl = document.getElementById("moisture");
                 if (moistureEl) moistureEl.innerHTML = parseFloat(data.moisture).toFixed(1);
+            }
+            // Water pump status update
+            if (data.water_pump !== undefined) {
+                updatePumpButton(data.water_pump, data.pump_auto);
+            }
+            // Fan status update (if sent from server)
+            if (data.fan !== undefined) {
+                updateFanButton(data.fan);
             }
             if (data.flame !== undefined) {
                 const flameEl = document.getElementById("flame");
@@ -241,16 +264,38 @@ function onMessage(event) {
 
 
 // ==================== UI NAVIGATION ====================
-// Initialize with Fan as default relay (but deletable)
-let relayList = [
-    { id: 9999, name: "🌀 Cooling Fan", gpio: 14, state: false }
-];
+// Relay list for custom devices (Fan & Pump now have dedicated cards)
+let relayList = [];
 let deleteTarget = null;
 
+// Load relays from localStorage on startup
+function loadRelays() {
+    try {
+        const saved = localStorage.getItem('iot_relays');
+        if (saved) {
+            relayList = JSON.parse(saved);
+        }
+    } catch (e) {
+        relayList = [];
+    }
+}
+
+// Save relays to localStorage
+function saveRelaysToStorage() {
+    try {
+        localStorage.setItem('iot_relays', JSON.stringify(relayList));
+    } catch (e) {
+        console.log('Could not save relays');
+    }
+}
+
 function showSection(id, event) {
+    // Hide all sections including home
     document.querySelectorAll('.section').forEach(sec => {
         sec.style.display = 'none';
     });
+    
+    // Show target section
     const targetSection = document.getElementById(id);
     if (targetSection) {
         targetSection.style.display = id === 'settings' ? 'flex' : 'block';
@@ -265,6 +310,7 @@ function showSection(id, event) {
     if (event && event.currentTarget) {
         event.currentTarget.classList.add('active');
     }
+    
     // Update Info section when shown
     if (id === 'info') {
         updateInfo();
@@ -277,19 +323,26 @@ function showSection(id, event) {
         }
     }
 }
+
 // ==================== DEVICE FUNCTIONS ====================
 function openAddRelayDialog() {
     document.getElementById('addRelayDialog').style.display = 'flex';
+    // Clear previous inputs
+    document.getElementById('relayName').value = '';
+    document.getElementById('relayGPIO').value = '';
 }
+
 function closeAddRelayDialog() {
     document.getElementById('addRelayDialog').style.display = 'none';
 }
+
 function saveRelay() {
     const name = document.getElementById('relayName').value.trim();
     const gpio = document.getElementById('relayGPIO').value.trim();
     if (!name || !gpio) return alert("Please fill all fields!");
 
-    relayList.push({ id: Date.now(), name, gpio, state: false });
+    relayList.push({ id: Date.now(), name, gpio: parseInt(gpio), state: false });
+    saveRelaysToStorage();
     renderRelays();
     closeAddRelayDialog();
     addNotification(
@@ -298,24 +351,33 @@ function saveRelay() {
         `New relay "${name}" added on GPIO ${gpio}`
     );
 }
+
 function renderRelays() {
     const container = document.getElementById('relayContainer');
+    if (!container) return;
+    
+    if (relayList.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 20px;">No custom relays. Click + to add one.</p>';
+        return;
+    }
+    
     container.innerHTML = "";
     relayList.forEach(r => {
         const card = document.createElement('div');
         card.className = 'device-card';
         card.innerHTML = `
-      <div class="device-icon">⚡</div>
-      <h3>${r.name}</h3>
-      <p>GPIO: ${r.gpio}</p>
-      <button class="toggle-btn ${r.state ? 'on' : ''}" onclick="toggleRelay(${r.id})">
-        ${r.state ? 'ON' : 'OFF'}
-      </button>
-      <span class="delete-icon" onclick="showDeleteDialog(${r.id})">🗑️</span>
-    `;
+            <div class="device-icon">⚡</div>
+            <h3>${r.name}</h3>
+            <p>GPIO: ${r.gpio}</p>
+            <button class="toggle-btn ${r.state ? 'on' : 'off'}" onclick="toggleRelay(${r.id})">
+                ${r.state ? 'ON' : 'OFF'}
+            </button>
+            <span class="delete-icon" onclick="showDeleteDialog(${r.id})">🗑️</span>
+        `;
         container.appendChild(card);
     });
 }
+
 function toggleRelay(id) {
     const relay = relayList.find(r => r.id === id);
     if (relay) {
@@ -328,18 +390,23 @@ function toggleRelay(id) {
             }
         });
         Send_Data(relayJSON);
+        saveRelaysToStorage();
         renderRelays();
     }
 }
+
 function showDeleteDialog(id) {
     deleteTarget = id;
     document.getElementById('confirmDeleteDialog').style.display = 'flex';
 }
+
 function closeConfirmDelete() {
     document.getElementById('confirmDeleteDialog').style.display = 'none';
 }
+
 function confirmDelete() {
     relayList = relayList.filter(r => r.id !== deleteTarget);
+    saveRelaysToStorage();
     renderRelays();
     closeConfirmDelete();
 }
@@ -350,15 +417,7 @@ let neoLedState = true; // Mặc định BẬT
 
 function toggleNeoLED() {
     neoLedState = !neoLedState;
-    const btn = document.getElementById("neoLedBtn");
-
-    if (neoLedState) {
-        btn.classList.add("on");
-        btn.textContent = "ON";
-    } else {
-        btn.classList.remove("on");
-        btn.textContent = "OFF";
-    }
+    updateNeoLedButton(neoLedState);
 
     // Gửi lệnh qua WebSocket
     const ledJSON = JSON.stringify({
@@ -371,23 +430,37 @@ function toggleNeoLED() {
     Send_Data(ledJSON);
 }
 
+// Update NeoLED button state
+function updateNeoLedButton(state) {
+    neoLedState = state;
+    const btn = document.getElementById("neoLedBtn");
+    const statusText = document.getElementById("neoLedStatusText");
+    
+    if (btn) {
+        if (state) {
+            btn.classList.add("on");
+            btn.classList.remove("off");
+            btn.innerHTML = '<span class="btn-icon">⏻</span><span class="btn-text">ON</span>';
+        } else {
+            btn.classList.remove("on");
+            btn.classList.add("off");
+            btn.innerHTML = '<span class="btn-icon">⏻</span><span class="btn-text">OFF</span>';
+        }
+    }
+    
+    if (statusText) {
+        statusText.textContent = state ? "ON" : "OFF";
+        statusText.style.color = state ? "#10B981" : "var(--text-muted)";
+    }
+}
+
 
 // ==================== FAN CONTROL ====================
 let fanState = false; // Mặc định TẮT
 
 function toggleFan() {
     fanState = !fanState;
-    const btn = document.getElementById("fanBtn");
-
-    if (fanState) {
-        btn.classList.add("on");
-        btn.classList.remove("off");
-        btn.textContent = "ON";
-    } else {
-        btn.classList.remove("on");
-        btn.classList.add("off");
-        btn.textContent = "OFF";
-    }
+    updateFanButton(fanState);
 
     // Gửi lệnh qua WebSocket
     const fanJSON = JSON.stringify({
@@ -400,6 +473,89 @@ function toggleFan() {
     Send_Data(fanJSON);
 }
 
+// Update fan button state from server or toggle
+function updateFanButton(state) {
+    fanState = state;
+    const btn = document.getElementById("fanBtn");
+    const statusText = document.getElementById("fanStatusText");
+    
+    if (btn) {
+        if (state) {
+            btn.classList.add("on");
+            btn.classList.remove("off");
+            btn.innerHTML = '<span class="btn-icon">⏻</span><span class="btn-text">ON</span>';
+        } else {
+            btn.classList.remove("on");
+            btn.classList.add("off");
+            btn.innerHTML = '<span class="btn-icon">⏻</span><span class="btn-text">OFF</span>';
+        }
+    }
+    
+    if (statusText) {
+        statusText.textContent = state ? "ON" : "OFF";
+        statusText.style.color = state ? "#10B981" : "var(--text-muted)";
+    }
+}
+
+
+// ==================== WATER PUMP CONTROL ====================
+let pumpState = false; // Mặc định TẮT
+let pumpAutoMode = true; // Mặc định AUTO
+
+function togglePump() {
+    pumpState = !pumpState;
+    updatePumpButton(pumpState, false); // Manual mode when toggled
+
+    // Gửi lệnh qua WebSocket
+    const pumpJSON = JSON.stringify({
+        page: "pump_control",
+        value: {
+            enabled: pumpState
+        }
+    });
+
+    Send_Data(pumpJSON);
+}
+
+// Update pump button state from server
+function updatePumpButton(state, autoMode) {
+    pumpState = state;
+    if (autoMode !== undefined) {
+        pumpAutoMode = autoMode;
+    }
+    
+    const btn = document.getElementById("pumpBtn");
+    const statusText = document.getElementById("pumpStatusText");
+    const modeBadge = document.getElementById("pumpModeBadge");
+    
+    if (btn) {
+        if (state) {
+            btn.classList.add("on");
+            btn.classList.remove("off");
+            btn.innerHTML = '<span class="btn-icon">⏻</span><span class="btn-text">ON</span>';
+        } else {
+            btn.classList.remove("on");
+            btn.classList.add("off");
+            btn.innerHTML = '<span class="btn-icon">⏻</span><span class="btn-text">OFF</span>';
+        }
+    }
+    
+    if (statusText) {
+        statusText.textContent = state ? "ON" : "OFF";
+        statusText.style.color = state ? "#10B981" : "var(--text-muted)";
+    }
+    
+    if (modeBadge) {
+        if (pumpAutoMode) {
+            modeBadge.textContent = "Auto";
+            modeBadge.classList.add("auto");
+        } else {
+            modeBadge.textContent = "Manual";
+            modeBadge.classList.remove("auto");
+        }
+    }
+}
+
 
 // ==================== CSV CONTROLS ====================
 function downloadCSV() {
@@ -407,7 +563,7 @@ function downloadCSV() {
 }
 
 function clearCSV() {
-    if (confirm("Are you sure you want to delete all CSV data?")) {
+    if (confirm("Are you sure you want to delete all sensor data? This action cannot be undone.")) {
         fetch("/clear")
             .then(response => response.text())
             .then(data => {
@@ -420,19 +576,42 @@ function clearCSV() {
     }
 }
 
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 function updateCSVInfo() {
     fetch("/csv-info")
         .then(response => response.json())
         .then(data => {
             const statusEl = document.getElementById("csvStatus");
-            if (data.exists) {
-                statusEl.innerHTML = `📄 Size: ${data.size} bytes | Lines: ~${data.lines}`;
+            const recordsEl = document.getElementById("csvRecords");
+            const sizeEl = document.getElementById("csvSize");
+            
+            if (data.exists && data.lines > 1) {
+                const records = data.lines - 1;  // Subtract header row
+                
+                if (recordsEl) recordsEl.textContent = records.toLocaleString();
+                if (sizeEl) sizeEl.textContent = formatFileSize(data.size);
+                if (statusEl) statusEl.textContent = "Ready";
+                if (statusEl) statusEl.style.color = "#10B981";
             } else {
-                statusEl.innerHTML = "❌ No data yet";
+                if (recordsEl) recordsEl.textContent = "0";
+                if (sizeEl) sizeEl.textContent = "0 B";
+                if (statusEl) statusEl.textContent = "No data";
+                if (statusEl) statusEl.style.color = "#F59E0B";
             }
         })
         .catch(err => {
-            document.getElementById("csvStatus").innerHTML = "⚠️ Unable to fetch info";
+            const statusEl = document.getElementById("csvStatus");
+            if (statusEl) {
+                statusEl.textContent = "Offline";
+                statusEl.style.color = "#EF4444";
+            }
         });
 }
 

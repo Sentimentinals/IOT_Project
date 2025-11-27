@@ -1,11 +1,11 @@
-#ifndef __TEMP_HUMI_MONITOR__
-#define __TEMP_HUMI_MONITOR__
-#include <Arduino.h>
-#include <ArduinoJson.h>
-#include "LiquidCrystal_I2C.h"
-#include "DHT20.h"
+#ifndef __TEMP_HUMI_MONITOR_H__
+#define __TEMP_HUMI_MONITOR_H__
+
 #include "global.h"
+#include "DHT20.h"
+#include "LiquidCrystal_I2C.h"
 
 void temp_humi_monitor(void *pvParameters);
 
 #endif
+

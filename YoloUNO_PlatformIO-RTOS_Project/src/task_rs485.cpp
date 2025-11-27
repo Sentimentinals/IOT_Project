@@ -142,3 +142,4 @@ void tasksensor_init()
     xTaskCreate(Task_Read_Sensor, "Task_Read_Sensor", 4096, NULL, 1, NULL);
     xTaskCreate(Task_Send_data, "Task_Send_data", 4096, NULL, 1, NULL);
 }
+

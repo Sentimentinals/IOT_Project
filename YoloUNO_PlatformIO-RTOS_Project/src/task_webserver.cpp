@@ -78,35 +78,43 @@ void connnectWSV()
                   request->send(200, "text/plain", "OK");
               });
     
-    // Download CSV endpoint
+    // Download CSV endpoint with proper filename
     server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request)
               { 
                   if (LittleFS.exists("/sensor_data.csv")) {
-                      request->send(LittleFS, "/sensor_data.csv", "text/csv", true);
+                      AsyncWebServerResponse *response = request->beginResponse(LittleFS, "/sensor_data.csv", "text/csv");
+                      response->addHeader("Content-Disposition", "attachment; filename=\"sensor_data.csv\"");
+                      request->send(response);
                   } else {
                       request->send(404, "text/plain", "CSV file not found");
                   }
               });
     
-    // CSV info endpoint
+    // CSV info endpoint with more details
     server.on("/csv-info", HTTP_GET, [](AsyncWebServerRequest *request)
               { 
                   String json = "{";
                   if (LittleFS.exists("/sensor_data.csv")) {
                       File file = LittleFS.open("/sensor_data.csv", "r");
                       if (file) {
-                          int size = file.size();
+                          size_t size = file.size();
                           int lines = 0;
+                          
+                          // Count lines efficiently
                           while (file.available()) {
                               if (file.read() == '\n') lines++;
                           }
                           file.close();
-                          json += "\"exists\":true,\"size\":" + String(size) + ",\"lines\":" + String(lines);
+                          
+                          json += "\"exists\":true";
+                          json += ",\"size\":" + String(size);
+                          json += ",\"lines\":" + String(lines);
+                          json += ",\"records\":" + String(lines > 0 ? lines - 1 : 0);  // Subtract header
                       } else {
-                          json += "\"exists\":false";
+                          json += "\"exists\":false,\"size\":0,\"lines\":0,\"records\":0";
                       }
                   } else {
-                      json += "\"exists\":false";
+                      json += "\"exists\":false,\"size\":0,\"lines\":0,\"records\":0";
                   }
                   json += "}";
                   request->send(200, "application/json", json);
@@ -152,12 +160,19 @@ void connnectWSV()
               });
     
     // ElegantOTA setup - MUST be before server.begin()
+    // Supports both Firmware and Filesystem (LittleFS) updates
     ElegantOTA.begin(&server);
     ElegantOTA.setAutoReboot(true);
     
     ElegantOTA.onStart([]() {
         Serial.println("\n[OTA] Update starting...");
+        
+        // Notify clients about OTA update
+        String otaNotif = "{\"type\":\"ota\",\"status\":\"starting\"}";
+        ws.textAll(otaNotif);
+        
         // Close all websocket connections before OTA
+        vTaskDelay(pdMS_TO_TICKS(200));
         ws.closeAll();
         vTaskDelay(pdMS_TO_TICKS(100));
     });

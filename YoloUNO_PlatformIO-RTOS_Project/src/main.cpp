@@ -8,6 +8,7 @@
 #include "sensor_light.h"
 #include "sensor_moisture.h"
 #include "sensor_flame.h"
+#include "sensor_water_pump.h"
 #include "task_check_info.h"
 #include "task_toogle_boot.h"
 #include "task_wifi.h"
@@ -18,11 +19,6 @@ void setup()
 {
   Serial.begin(115200);
   delay(2000);
-  
-  Serial.println("\n========================================");
-  Serial.println("  IOT Environment Monitor - RTOS");
-  Serial.println("  Queue + Semaphore Architecture");
-  Serial.println("========================================\n");
   
   // Initialize RTOS primitives FIRST (before anything else)
   initRTOSPrimitives();
@@ -49,6 +45,7 @@ void setup()
   xTaskCreate(sensor_light_task, "Light", 2048, NULL, 2, NULL);
   xTaskCreate(sensor_moisture_task, "Moisture", 2048, NULL, 2, NULL);
   xTaskCreate(sensor_flame_task, "Flame", 3072, NULL, 4, NULL);  // Highest - safety
+  xTaskCreate(sensor_water_pump_task, "WaterPump", 3072, NULL, 2, NULL);  // Auto irrigation
   xTaskCreate(CORE_IOT_task, "CoreIOT", 4096, NULL, 2, NULL);
   
   Serial.println("[Setup] Complete\n");

@@ -4,7 +4,17 @@
 /**
  * FLAME SENSOR TASK
  * Fire Alert has HIGHEST priority - overrides all other states
+ * 
+ * Flame sensor (KY-026 / similar):
+ * - Normal (no flame): HIGH voltage (~3.3V) → rawValue HIGH (3000-4095)
+ * - Flame detected: LOW voltage → rawValue LOW (< threshold)
+ * 
+ * Added debounce: Requires 3 consecutive readings to confirm state change
  */
+
+// Debounce configuration
+#define FLAME_DEBOUNCE_COUNT 3
+#define FLAME_THRESHOLD 1500
 
 void sensor_flame_task(void *pvParameters) {
     Serial.println("[Flame] Task started");
@@ -12,35 +22,47 @@ void sensor_flame_task(void *pvParameters) {
     pinMode(FLAME_SENSOR_PIN, INPUT);
     
     bool lastFlameState = false;
-    SensorData_t sensorData = {0};
+    bool confirmedFlameState = false;
+    int flameCounter = 0;
+    int noFlameCounter = 0;
+    
+    // Initial reading
+    int initValue = analogRead(FLAME_SENSOR_PIN);
+    Serial.printf("[Flame] Initial: %d (threshold: %d)\n", initValue, FLAME_THRESHOLD);
     
     while (1) {
         int rawValue = analogRead(FLAME_SENSOR_PIN);
-        const int FLAME_THRESHOLD = 2000;
-        bool flameDetected = (rawValue < FLAME_THRESHOLD);
-
-        sensorData.flame_detected = flameDetected;
+        bool currentReading = (rawValue < FLAME_THRESHOLD);
+        
+        // Debounce logic
+        if (currentReading) {
+            flameCounter++;
+            noFlameCounter = 0;
+            if (flameCounter >= FLAME_DEBOUNCE_COUNT && !confirmedFlameState) {
+                confirmedFlameState = true;
+                Serial.printf("[Flame] FIRE DETECTED! (raw: %d)\n", rawValue);
+            }
+        } else {
+            noFlameCounter++;
+            flameCounter = 0;
+            if (noFlameCounter >= FLAME_DEBOUNCE_COUNT && confirmedFlameState) {
+                confirmedFlameState = false;
+                Serial.printf("[Flame] Fire cleared (raw: %d)\n", rawValue);
+            }
+        }
+        
+        bool flameDetected = confirmedFlameState;
         
         // State change detection
         if (flameDetected != lastFlameState) {
             lastFlameState = flameDetected;
-            
             if (flameDetected) {
-                Serial.println("[Flame] FIRE DETECTED!");
                 updateSystemState(STATE_FIRE_ALERT);
-            } else {
-                Serial.println("[Flame] Fire cleared");
             }
         }
         
-        // Update queue
-        if (xSensorDataQueue != NULL) {
-            SensorData_t currentData;
-            if (xQueuePeek(xSensorDataQueue, &currentData, 0) == pdTRUE) {
-                currentData.flame_detected = flameDetected;
-                xQueueOverwrite(xSensorDataQueue, &currentData);
-            }
-        }
+        // Thread-safe update of flame_detected field only
+        updateSensorField_Flame(flameDetected);
         
         // Send to WebSocket
         String jsonString = "";
