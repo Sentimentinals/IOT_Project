@@ -33,8 +33,8 @@ RPC_Response setFanStatus(const RPC_Data &data) {
     bool newState = data;
     fanEnabled = newState;
     
-    pinMode(14, OUTPUT);
-    digitalWrite(14, newState ? HIGH : LOW);
+    pinMode(2, OUTPUT);
+    digitalWrite(2, newState ? HIGH : LOW);
     
     // Thread-safe update
     updateSensorField_Fan(newState);
