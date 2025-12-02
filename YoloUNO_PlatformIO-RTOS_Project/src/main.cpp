@@ -14,6 +14,7 @@
 #include "task_wifi.h"
 #include "task_webserver.h"
 #include "task_core_iot.h"
+#include "tinyml.h"
 
 void setup()
 {
@@ -47,7 +48,8 @@ void setup()
   xTaskCreate(sensor_flame_task, "Flame", 3072, NULL, 4, NULL);  // Highest - safety
   xTaskCreate(sensor_water_pump_task, "WaterPump", 3072, NULL, 2, NULL);  // Auto irrigation
   xTaskCreate(CORE_IOT_task, "CoreIOT", 4096, NULL, 2, NULL);
-  
+
+  xTaskCreate( tiny_ml_task, "Tiny ML Task" ,2048  ,NULL  ,3 , NULL);
   Serial.println("[Setup] Complete\n");
 }
 
