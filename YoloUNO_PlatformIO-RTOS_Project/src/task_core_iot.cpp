@@ -150,6 +150,13 @@ void CORE_IOT_task(void *pvParameters)
     unsigned long lastPublish = 0;
     const unsigned long PUBLISH_INTERVAL = 10000;
     SensorData_t sensorData = {0};
+    
+    // Alarm statistics
+    uint32_t totalAlarms = 0;
+    uint32_t warningCount = 0;
+    uint32_t criticalCount = 0;
+    uint32_t fireCount = 0;
+    SystemState_t lastState = STATE_NORMAL;
 
     while (1)
     {
@@ -167,6 +174,7 @@ void CORE_IOT_task(void *pvParameters)
 
                 if (tb.connected())
                 {
+                    // ================== CORE SENSOR TELEMETRY ==================
                     tb.sendTelemetryData("temperature", sensorData.temperature);
                     tb.sendTelemetryData("humidity", sensorData.humidity);
                     tb.sendTelemetryData("light", sensorData.light_level);
@@ -175,7 +183,70 @@ void CORE_IOT_task(void *pvParameters)
                     tb.sendTelemetryData("fanStatus", sensorData.fan_enabled ? 1 : 0);
                     tb.sendTelemetryData("neoLedEnabled", sensorData.neoled_enabled ? 1 : 0);
                     tb.sendTelemetryData("waterPumpStatus", sensorData.water_pump_enabled ? 1 : 0);
-                    tb.sendTelemetryData("systemState", (int)getSystemState());
+
+                    // ================== SYSTEM STATE & ALARMS ==================
+                    SystemState_t currentState = getSystemState();
+                    tb.sendTelemetryData("systemState", (int)currentState);
+
+                    // Detect state transitions into warning/critical/fire to build alarm counters
+                    if (currentState != lastState)
+                    {
+                        if (currentState == STATE_WARNING ||
+                            currentState == STATE_CRITICAL ||
+                            currentState == STATE_FIRE_ALERT)
+                        {
+                            totalAlarms++;
+
+                            switch (currentState)
+                            {
+                                case STATE_WARNING:
+                                    warningCount++;
+                                    break;
+                                case STATE_CRITICAL:
+                                    criticalCount++;
+                                    break;
+                                case STATE_FIRE_ALERT:
+                                    fireCount++;
+                                    break;
+                                default:
+                                    break;
+                            }
+
+                            // Send aggregated alarm statistics
+                            tb.sendTelemetryData("alarmTotalCount", (int)totalAlarms);
+                            tb.sendTelemetryData("alarmWarningCount", (int)warningCount);
+                            tb.sendTelemetryData("alarmCriticalCount", (int)criticalCount);
+                            tb.sendTelemetryData("alarmFireCount", (int)fireCount);
+                        }
+
+                        lastState = currentState;
+                    }
+
+                    // ================== DEVICE COUNT (for dashboard widgets) ==================
+                    int activeDevices = 0;
+                    if (sensorData.fan_enabled) activeDevices++;
+                    if (sensorData.neoled_enabled) activeDevices++;
+                    if (sensorData.water_pump_enabled) activeDevices++;
+                    tb.sendTelemetryData("activeDevices", activeDevices);
+
+                    // ================== WIFI HEALTH METRICS ==================
+                    if (WiFi.status() == WL_CONNECTED)
+                    {
+                        int32_t rssi = WiFi.RSSI(); // dBm (negative value)
+                        tb.sendTelemetryData("wifiSignal", (int)rssi);
+
+                        // Convert RSSI to "quality" 0-100% (approximation)
+                        int32_t clamped = rssi;
+                        if (clamped < -100) clamped = -100;
+                        if (clamped > -50)  clamped = -50;
+                        int32_t quality = map(clamped, -100, -50, 0, 100);
+                        tb.sendTelemetryData("wifiQuality", (int)quality);
+                    }
+                    else
+                    {
+                        tb.sendTelemetryData("wifiSignal", -120);
+                        tb.sendTelemetryData("wifiQuality", 0);
+                    }
                 }
             }
         }
