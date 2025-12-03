@@ -1,25 +1,40 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
+print(tf.__version__)
 
 PREFIX = "TinyML"
 
 
-data = pd.read_csv("sensor_data.csv", names=["temp", "humidity", "label"])
-X = data[["temp", "humidity"]].values
-y = data["label"].values
+data = pd.read_csv("sensor_data.csv")
+X = data[["temperature", "humidity", "light", "moisture"]].values
+# scaler = MinMaxScaler()
+# X = scaler.fit_transform(X)
+
+# y = data["system_state"].values
+y = (data["system_state"] == "Normal").astype(int).values
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
 # Simple classifier model
 model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(2,)),
+    tf.keras.layers.Input(shape=(4,)),
     tf.keras.layers.Dense(8, activation='relu'),
+    tf.keras.layers.Dense(4, activation='relu'),
     tf.keras.layers.Dense(1, activation='sigmoid')
 ])
 
-model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-model.fit(X_train, y_train, epochs=50, validation_data=(X_test, y_test))
+# model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+model.compile(loss="binary_crossentropy", optimizer="adam", metrics=[
+    "accuracy",
+    tf.keras.metrics.Precision(),
+    tf.keras.metrics.Recall()
+])
+
+callback = tf.keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True)
+
+model.fit(X_train, y_train, epochs=50, validation_data=(X_test, y_test), callbacks =[callback])
 model.save(PREFIX + '.h5')
 
 
