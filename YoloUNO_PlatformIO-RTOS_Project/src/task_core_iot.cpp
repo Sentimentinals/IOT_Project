@@ -65,10 +65,32 @@ RPC_Response setWaterPumpStatus(const RPC_Data &data) {
     return RPC_Response("setWaterPumpStatus", newState);
 }
 
-const std::array<RPC_Callback, 3U> callbacks = {
+// ==================== RPC GETTERS (used by dashboard to sync initial switch state) ====================
+
+RPC_Response getFanStatus(const RPC_Data &data) {
+    (void)data; // unused
+    return RPC_Response("getFanStatus", fanEnabled);
+}
+
+RPC_Response getLedStatus(const RPC_Data &data) {
+    (void)data; // unused
+    return RPC_Response("getLedStatus", neoledEnabled);
+}
+
+RPC_Response getWaterPumpStatus(const RPC_Data &data) {
+    (void)data; // unused
+    return RPC_Response("getWaterPumpStatus", waterPumpEnabled);
+}
+
+const std::array<RPC_Callback, 6U> callbacks = {
+    // Setters
     RPC_Callback{"setFanStatus", setFanStatus},
     RPC_Callback{"setLedEnabled", setLedEnabled},
-    RPC_Callback{"setWaterPumpStatus", setWaterPumpStatus}
+    RPC_Callback{"setWaterPumpStatus", setWaterPumpStatus},
+    // Getters
+    RPC_Callback{"getFanStatus", getFanStatus},
+    RPC_Callback{"getLedStatus", getLedStatus},
+    RPC_Callback{"getWaterPumpStatus", getWaterPumpStatus}
 };
 
 const Shared_Attribute_Callback attributes_callback(&processSharedAttributes, SHARED_ATTRIBUTES_LIST.cbegin(), SHARED_ATTRIBUTES_LIST.cend());

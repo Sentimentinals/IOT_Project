@@ -50,36 +50,58 @@ void setupTinyML()
 
 void tiny_ml_task(void* pvParameters)
 {
+    vTaskDelay(pdMS_TO_TICKS(5000));
     setupTinyML();
+    
+    if (interpreter == nullptr || input == nullptr || output == nullptr)
+    {
+        Serial.println("[TinyML] Model failed to load, task exiting.");
+        vTaskDelete(NULL);
+        return;
+    }
 
     SensorData_t sensorData = {0};
 
     while (1)
     {
-        if (xSensorDataQueue != NULL)
+        // Thread-safe read of sensor data
+        if (!getSensorData(&sensorData))
         {
-            xQueuePeek(xSensorDataQueue, &sensorData, pdMS_TO_TICKS(100));
+            Serial.println("[TinyML] Failed to get sensor data");
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            continue;
+        }
+
+        // Validate sensor data before inference
+        if (sensorData.temperature <= 0 && sensorData.humidity <= 0)
+        {
+            // No valid data yet, skip inference
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            continue;
         }
 
         // ------------------------------
         // Fill input: 4 floats
         // Order MUST MATCH training data:
-        // [ temperature, humidity, light, moisture ]
+        // [ temperature, humidity, light_level, moisture_level ]
         // ------------------------------
         input->data.f[0] = sensorData.temperature;
         input->data.f[1] = sensorData.humidity;
-        input->data.f[2] = sensorData.light;
-        input->data.f[3] = sensorData.moisture;
+        input->data.f[2] = sensorData.light_level;
+        input->data.f[3] = sensorData.moisture_level;
 
         if (interpreter->Invoke() != kTfLiteOk)
         {
             Serial.println("[TinyML] Invoke failed!");
+            vTaskDelay(pdMS_TO_TICKS(5000));
             continue;
         }
 
         float y = output->data.f[0];
 
-        Serial.printf("[TinyML] Output = %.3f\n", y);
+        Serial.printf("[TinyML] Input: T=%.1f H=%.1f L=%.1f M=%.1f => Output=%.3f\n",
+                      sensorData.temperature, sensorData.humidity,
+                      sensorData.light_level, sensorData.moisture_level, y);
 
         vTaskDelay(pdMS_TO_TICKS(5000));
     }

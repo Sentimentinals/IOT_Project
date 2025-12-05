@@ -1,0 +1,525 @@
+\chapter{Hardware Implementation and Data Transmission}
+
+This chapter presents the detailed implementation of our environmental monitoring system, focusing on the hardware integration, sensor interfacing, and data transmission mechanisms. We describe how sensor data is acquired, processed on the ESP32 microcontroller, and transmitted to the Core IOT cloud platform using industry-standard protocols.
+
+\section{System Architecture Overview}
+
+Our system employs a distributed architecture consisting of three primary layers: the sensing layer comprising environmental sensors and actuators, the edge processing layer based on the ESP32 microcontroller running FreeRTOS, and the cloud layer utilizing the Core IOT platform for data aggregation and visualization. Figure~\ref{fig:system_architecture} illustrates this three-tier architecture.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[node distance=2.5cm, auto,
+        layer/.style={rectangle, draw, fill=blue!15, text width=10cm, text centered, rounded corners, minimum height=1.2cm, font=\bfseries},
+        component/.style={rectangle, draw, fill=green!10, text width=2.2cm, text centered, rounded corners, minimum height=0.8cm, font=\small},
+        arrow/.style={->, >=stealth, thick}]
+        
+        % Layers
+        \node[layer] (cloud) {Cloud Layer: Core IOT Platform};
+        \node[layer, below=of cloud] (edge) {Edge Layer: ESP32 + FreeRTOS};
+        \node[layer, below=of edge] (sensing) {Sensing Layer: Sensors \& Actuators};
+        
+        % Arrows
+        \draw[arrow] (sensing) -- node[right, font=\scriptsize] {I2C, ADC, GPIO} (edge);
+        \draw[arrow] (edge) -- node[right, font=\scriptsize] {MQTT over WiFi} (cloud);
+        \draw[arrow, dashed] (cloud) -- node[left, font=\scriptsize] {RPC Commands} (edge);
+        
+    \end{tikzpicture}
+    \caption{Three-tier system architecture showing data flow from sensors to cloud platform.}
+    \label{fig:system_architecture}
+\end{figure}
+
+\section{Sensor and Actuator Integration}
+
+We integrated multiple environmental sensors to provide comprehensive monitoring capabilities. Each sensor communicates with the ESP32 using appropriate interfaces based on its electrical characteristics and data rate requirements.
+
+\subsection{Communication Interfaces Overview}
+
+\subsubsection{Inter-Integrated Circuit (I2C)}
+The I2C protocol is a synchronous, multi-master, multi-slave packet switched computer bus. It uses two bidirectional open-drain lines: Serial Data Line (SDA) and Serial Clock Line (SCL). We utilize I2C for the OLED display integration because it allows multiple devices to share the same bus using unique 7-bit addresses. The ESP32 acts as the master device, generating the clock signal and initiating data transfers to the SSD1306 OLED driver (address 0x3C).
+
+\subsubsection{Analog-to-Digital Conversion (ADC)}
+For analog sensors like the photoresistor and soil moisture probe, we utilize the ESP32's internal Successive Approximation Register (SAR) ADC. The ADC converts continuous analog voltage signals (0--3.3V) into discrete digital values (0--4095), enabling the microcontroller to process physical environmental parameters.
+
+\subsection{Temperature and Humidity Sensor}
+
+For temperature and humidity measurements, we selected the DHT11 digital sensor, which provides calibrated output through a single-wire digital interface. The DHT11 is a cost-effective sensor suitable for basic environmental monitoring applications, offering reasonable accuracy (\textpm 2\textdegree C for temperature, \textpm 5\% for humidity) with a simple communication protocol.
+
+The DHT11 communicates using a proprietary single-wire protocol where both data transmission and power can be shared over a single GPIO pin. We connected the sensor's data pin to \texttt{GPIO 6} (labeled D4-D3 on the YoloUNO board) and utilized the Adafruit DHT library, which handles the timing-critical bit-level communication protocol automatically.
+
+The sensor provides 8-bit resolution for both temperature (0--50\textdegree C range) and relative humidity (20--90\% range). Each measurement cycle takes approximately 2 seconds due to the sensor's internal sampling rate limitation. We configured the sensor as follows:
+
+\begin{lstlisting}[language=C++, caption={DHT11 sensor configuration and pin definition}]
+#include <DHT.h>
+
+#define DHTPIN 6        // GPIO 6 (D4-D3 port)
+#define DHTTYPE DHT11   // Sensor type specification
+
+DHT dht(DHTPIN, DHTTYPE);
+\end{lstlisting}
+
+In our main monitoring task, we initialize the sensor and implement a polling loop with validation to ensure data integrity:
+
+\begin{lstlisting}[language=C++, caption={DHT11 sensor reading with validation}]
+void temp_humi_oled(void *pvParameters) {
+    Serial.println("[OLED] Task started");
+    
+    // Initialize DHT11 sensor
+    dht.begin();
+    
+    SensorData_t sensorData = {0};
+    bool sensorReady = false;
+    
+    while (1) {
+        // Read sensor values
+        float humidity = dht.readHumidity();
+        float temperature = dht.readTemperature();
+        
+        // Validate readings (check for NaN and reasonable ranges)
+        bool validReading = !isnan(temperature) && !isnan(humidity) && 
+                           temperature > 0 && temperature < 80 &&
+                           humidity > 0 && humidity <= 100;
+        
+        if (!validReading) {
+            vTaskDelay(pdMS_TO_TICKS(500));
+            continue;  // Skip this cycle
+        }
+        
+        if (!sensorReady) {
+            sensorReady = true;
+            Serial.println("[OLED] Sensor ready");
+        }
+        
+        // Update shared data structure
+        sensorData.temperature = temperature;
+        sensorData.humidity = humidity;
+        sendSensorData(&sensorData);
+        
+        // DHT11 requires minimum 1 second between readings
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+\end{lstlisting}
+
+The validation logic filters out erroneous readings that occasionally occur during startup or when electromagnetic interference affects the single-wire communication. We verify that values are not NaN (Not-a-Number) and fall within physically plausible ranges before accepting them. The 1-second delay between readings respects the DHT11's maximum sampling rate while providing adequate temporal resolution for environmental monitoring.
+
+\subsection{Light Intensity Sensor}
+
+Light intensity measurement utilizes a photoresistor (Light Dependent Resistor) coupled with an LMV358 operational amplifier to enhance signal quality. The photoresistor exhibits a nonlinear resistance characteristic that varies inversely with illumination: high resistance (several megaohms) in darkness and low resistance (hundreds of ohms) under bright light.
+
+The LMV358 op-amp is configured as a voltage follower to buffer the signal and provide a low-impedance source for the ESP32's Analog-to-Digital Converter (ADC). The ESP32 features a 12-bit SAR ADC with a voltage range of 0--3.3V, yielding a theoretical resolution of 0.8 mV per step. However, the ADC exhibits significant nonlinearity at the extremes of its range, so we constrained our measurements to the more linear mid-range region.
+
+We connected the sensor output to \texttt{GPIO\_NUM\_1} (labeled A2-A1 on the YoloUNO board) and implemented an exponential mapping algorithm to convert the raw ADC values to lux units:
+
+\begin{lstlisting}[language=C++, caption={Light sensor with exponential lux conversion and smoothing filter}]
+#define LIGHT_SENSOR_PIN GPIO_NUM_1
+#define LUX_MIN 1.0f
+#define LUX_MAX 65000.0f
+#define ADC_DARK 100
+#define ADC_BRIGHT 4000
+
+void sensor_light_task(void *pvParameters) {
+    pinMode(LIGHT_SENSOR_PIN, INPUT);
+    
+    float smoothedLux = 0;
+    const float ALPHA = 0.3f;  // Smoothing coefficient
+    bool firstReading = true;
+    
+    while (1) {
+        int rawValue = analogRead(LIGHT_SENSOR_PIN);
+        int constrainedADC = constrain(rawValue, ADC_DARK, ADC_BRIGHT);
+        
+        // Normalize to [0, 1] range
+        float normalized = (float)(constrainedADC - ADC_DARK) / 
+                          (ADC_BRIGHT - ADC_DARK);
+        
+        // Exponential mapping to lux scale
+        float luxEstimate = LUX_MIN * pow(LUX_MAX / LUX_MIN, normalized);
+        
+        // Exponential moving average filter
+        if (firstReading) {
+            smoothedLux = luxEstimate;
+            firstReading = false;
+        } else {
+            smoothedLux = ALPHA * luxEstimate + (1.0f - ALPHA) * smoothedLux;
+        }
+        
+        float finalLux = round(smoothedLux);
+        updateSensorField_Light(finalLux);
+        
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+\end{lstlisting}
+
+The exponential mapping function accommodates the wide dynamic range of illumination levels encountered in real-world environments, spanning from moonlight (~1 lux) to direct sunlight (>100,000 lux). The exponential moving average (EMA) filter reduces noise and transient fluctuations with minimal computational overhead.
+
+\subsection{Soil Moisture Sensor}
+
+Soil moisture monitoring employs a capacitive moisture sensor connected to \texttt{GPIO\_NUM\_8}. Unlike resistive sensors that suffer from corrosion due to electrolysis, capacitive sensors measure the dielectric constant of the soil, which correlates with water content. The sensor outputs an analog voltage proportional to moisture level.
+
+We configured the sensor pin as an analog input and implemented a linear mapping from the 12-bit ADC range to a percentage scale:
+
+\begin{lstlisting}[language=C++, caption={Capacitive soil moisture sensor implementation}]
+#define MOISTURE_SENSOR_PIN GPIO_NUM_8
+
+void sensor_moisture_task(void *pvParameters) {
+    pinMode(MOISTURE_SENSOR_PIN, INPUT);
+    
+    while (1) {
+        int rawValue = analogRead(MOISTURE_SENSOR_PIN);
+        
+        // Convert to percentage (inverted: high ADC = dry, low ADC = wet)
+        float moistureLevel = 100.0 - ((rawValue / 4095.0) * 100.0);
+        
+        updateSensorField_Moisture(moistureLevel);
+        
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+\end{lstlisting}
+
+The inversion is necessary because the sensor outputs high voltage in air (dry condition) and lower voltage when immersed in water (wet condition). This configuration provides an intuitive percentage where 0\% represents completely dry soil and 100\% represents saturation.
+
+\subsection{Flame Detection Sensor}
+
+Fire detection capability is provided by an infrared flame sensor (KY-026 module) connected to GPIO pin 10. The sensor incorporates an IR photodiode tuned to detect the specific wavelength emitted by flames (approximately 760--1100 nm). The module includes an onboard comparator that generates a digital HIGH signal under normal conditions and transitions to LOW when flame radiation is detected.
+
+To eliminate false triggers from transient electromagnetic interference or brief reflections, we implemented a debouncing algorithm requiring three consecutive positive detections before confirming a fire event:
+
+\begin{lstlisting}[language=C++, caption={Flame sensor with debouncing and state machine}]
+#define FLAME_SENSOR_PIN 10
+#define FLAME_DEBOUNCE_COUNT 3
+#define FLAME_THRESHOLD 1500
+
+void sensor_flame_task(void *pvParameters) {
+    pinMode(FLAME_SENSOR_PIN, INPUT);
+    
+    bool confirmedFlameState = false;
+    int flameCounter = 0;
+    int noFlameCounter = 0;
+    
+    while (1) {
+        int rawValue = analogRead(FLAME_SENSOR_PIN);
+        bool currentReading = (rawValue < FLAME_THRESHOLD);
+        
+        // Debounce logic
+        if (currentReading) {
+            flameCounter++;
+            noFlameCounter = 0;
+            if (flameCounter >= FLAME_DEBOUNCE_COUNT && !confirmedFlameState) {
+                confirmedFlameState = true;
+                Serial.printf("[Flame] FIRE DETECTED! (raw: %d)\n", rawValue);
+                updateSystemState(STATE_FIRE_ALERT);
+            }
+        } else {
+            noFlameCounter++;
+            flameCounter = 0;
+            if (noFlameCounter >= FLAME_DEBOUNCE_COUNT && confirmedFlameState) {
+                confirmedFlameState = false;
+                Serial.printf("[Flame] Fire cleared (raw: %d)\n", rawValue);
+            }
+        }
+        
+        updateSensorField_Flame(confirmedFlameState);
+        vTaskDelay(pdMS_TO_TICKS(300));
+    }
+}
+\end{lstlisting}
+
+This state machine approach ensures high reliability by requiring sustained detection before triggering an alarm. The 300 ms sampling interval provides rapid response while maintaining adequate noise immunity.
+
+\subsection{Actuator Configuration}
+
+Our system controls three actuators for automated environmental management: a cooling fan, an RGB LED strip, and a water pump. Each actuator is controlled through GPIO pins configured as digital outputs, but with distinct control logic.
+
+The cooling fan connects to GPIO 2 and is activated in response to elevated temperature readings or manual commands from the dashboard. We drive the fan using a simple digital ON/OFF control strategy implemented through the RPC callback mechanism described in Section~\ref{sec:data_transmission}.
+
+The RGB LED strip (NeoPixel) is driven by a dedicated task that modulates color and brightness based on humidity levels, as detailed in Chapter 3.
+
+The water pump implementation is more complex, featuring a dual-mode control system:
+\begin{itemize}
+    \item \textbf{Automatic Mode:} The pump operates based on soil moisture feedback with hysteresis control. It activates when moisture drops below 30\% (dry threshold) and deactivates only when moisture exceeds 60\% (wet threshold). This hysteresis prevents rapid cycling (chattering) of the pump relay when moisture levels fluctuate near a single threshold.
+    \item \textbf{Manual Mode:} Users can override automatic control via the dashboard. When a manual command is received, the system enters manual mode for a fixed duration (5 minutes) before reverting to automatic operation. This safety timeout prevents the pump from running indefinitely if the user forgets to turn it off.
+\end{itemize}
+
+\begin{lstlisting}[language=C++, caption={Water pump control logic with hysteresis and manual override}]
+if (manualModeActive) {
+    // Manual override from dashboard
+    pumpState = manualPumpState;
+    if (millis() > manualModeTimeout) {
+        manualModeActive = false; // Revert to AUTO after timeout
+    }
+} else {
+    // Automatic hysteresis control
+    if (moisture < 30.0 && !pumpState) {
+        pumpState = true;  // Turn ON
+    } 
+    else if (moisture > 60.0 && pumpState) {
+        pumpState = false; // Turn OFF
+    }
+}
+digitalWrite(WATER_PUMP_PIN, pumpState ? HIGH : LOW);
+\end{lstlisting}
+
+\section{Data Transmission to Core IOT Platform}
+\label{sec:data_transmission}
+
+After acquiring and processing sensor data locally on the ESP32, we transmit the information to the Core IOT cloud platform for storage, analysis, and visualization. This section details the connection establishment, data serialization, and transmission protocols employed.
+
+\subsection{MQTT Protocol Overview}
+
+We selected the Message Queuing Telemetry Transport (MQTT) protocol for all device-to-cloud communication. MQTT is an ISO standard (ISO/IEC 20922) publish-subscribe messaging protocol designed specifically for constrained devices and unreliable networks. The protocol operates on a client-server architecture where the Core IOT platform functions as the MQTT broker and our ESP32 device acts as a client.
+
+MQTT offers several advantages for IoT applications: minimal protocol overhead (as low as 2 bytes per message), built-in Quality of Service (QoS) levels for guaranteed delivery, and persistent session support for intermittent connectivity scenarios. The publish-subscribe model decouples data producers from consumers, allowing scalable architectures where multiple devices and services can interact without explicit peer-to-peer connections.
+
+\subsection{Connection Establishment and Authentication}
+
+We initialize the MQTT client using the ThingsBoard Arduino SDK, which provides a high-level abstraction over the lower-level PubSubClient library. The connection sequence begins after the WiFi task signals successful network association through a FreeRTOS binary semaphore:
+
+\begin{lstlisting}[language=C++, caption={MQTT client initialization and ThingsBoard connection}]
+constexpr uint32_t MAX_MESSAGE_SIZE = 1024U;
+
+WiFiClient wifiClient;
+Arduino_MQTT_Client mqttClient(wifiClient);
+ThingsBoard tb(mqttClient, MAX_MESSAGE_SIZE);
+
+void CORE_IOT_task(void *pvParameters) {
+    // Wait for WiFi connectivity
+    while (1) {
+        if (xSemaphoreTake(xBinarySemaphoreInternet, portMAX_DELAY)) {
+            Serial.println("[CoreIOT] WiFi ready");
+            break;
+        }
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+    }
+    
+    // Verify token configuration
+    if (CORE_IOT_TOKEN.isEmpty()) {
+        Serial.println("[CoreIOT] Token not configured");
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    unsigned long lastPublish = 0;
+    const unsigned long PUBLISH_INTERVAL = 10000;  // 10 seconds
+    SensorData_t sensorData = {0};
+    
+    while (1) {
+        CORE_IOT_reconnect();
+        
+        if (millis() - lastPublish >= PUBLISH_INTERVAL) {
+            lastPublish = millis();
+            getSensorData(&sensorData);
+            
+            if (tb.connected()) {
+                tb.sendTelemetryData("temperature", sensorData.temperature);
+                tb.sendTelemetryData("humidity", sensorData.humidity);
+                tb.sendTelemetryData("light", sensorData.light_level);
+                tb.sendTelemetryData("moisture", sensorData.moisture_level);
+                tb.sendTelemetryData("flame", sensorData.flame_detected ? 1 : 0);
+            }
+        }
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+    }
+}
+\end{lstlisting}
+
+The \texttt{CORE\_IOT\_reconnect()} function handles both initial connection and automatic reconnection after network disruptions:
+
+\begin{lstlisting}[language=C++, caption={MQTT reconnection logic with authentication and subscription}]
+void CORE_IOT_reconnect() {
+    if (CORE_IOT_TOKEN.isEmpty() || CORE_IOT_SERVER.isEmpty())
+        return;
+    
+    if (!tb.connected()) {
+        if (!tb.connect(CORE_IOT_SERVER.c_str(), 
+                        CORE_IOT_TOKEN.c_str(), 
+                        CORE_IOT_PORT))
+            return;
+        
+        Serial.println("[CoreIOT] Connected");
+        
+        // Send device metadata as attributes
+        tb.sendAttributeData("macAddress", WiFi.macAddress().c_str());
+        tb.sendAttributeData("localIp", WiFi.localIP().toString().c_str());
+        
+        // Subscribe to RPC callbacks for remote control
+        tb.RPC_Subscribe(callbacks.cbegin(), callbacks.cend());
+    } else {
+        tb.loop();  // Process incoming messages
+    }
+}
+\end{lstlisting}
+
+Authentication occurs through a device-specific access token provisioned during device registration on the Core IOT portal. The token serves as both the MQTT username and the authorization credential, eliminating the need for separate password authentication. Upon successful connection, we transmit the device's MAC address and local IP address as attributes, enabling network diagnostics through the dashboard.
+
+\subsection{Telemetry Data Publishing}
+
+Telemetry data is published at a fixed interval of 10 seconds to balance timeliness with network efficiency. The ThingsBoard SDK automatically serializes the data into JSON format and publishes it to the appropriate MQTT topic. For example, when we call \texttt{tb.sendTelemetryData("temperature", 28.5)}, the SDK constructs a JSON payload similar to:
+
+\begin{verbatim}
+{"temperature": 28.5}
+\end{verbatim}
+
+This payload is then published to the topic \texttt{v1/devices/me/telemetry}, where the broker routes it to all subscribed clients and persists it in the time-series database. Figure~\ref{fig:coreiot_telemetry} shows the Core IOT dashboard displaying real-time telemetry data from our device.
+
+\begin{figure}[H]
+    \centering
+    % TODO: Replace with actual screenshot from Core IOT
+    \fbox{\parbox{0.9\textwidth}{\centering
+        \vspace{2cm}
+        \textit{[Insert screenshot of Core IOT dashboard showing telemetry widgets]}\\
+        \textit{Temperature gauge, humidity chart, light sensor, moisture level}\\
+        \vspace{2cm}
+    }}
+    \caption{Core IOT dashboard visualizing real-time sensor telemetry data.}
+    \label{fig:coreiot_telemetry}
+\end{figure}
+
+To verify that data is being received correctly by the platform, we accessed the \textit{Latest Telemetry} tab within the device details page. This interface provides a real-time view of all telemetry keys and their most recent values, along with timestamps indicating when each value was last updated. Figure~\ref{fig:coreiot_signals} demonstrates the signal verification interface.
+
+\begin{figure}[H]
+    \centering
+    % TODO: Replace with actual screenshot from Core IOT
+    \fbox{\parbox{0.9\textwidth}{\centering
+        \vspace{2cm}
+        \textit{[Insert screenshot of Core IOT Latest Telemetry panel]}\\
+        \textit{Showing temperature, humidity, light, moisture, flame keys with values and timestamps]}\\
+        \textit{Connection status: MQTT Connected}\\
+        \vspace{2cm}
+    }}
+    \caption{Core IOT Latest Telemetry panel confirming successful data transmission.}
+    \label{fig:coreiot_signals}
+\end{figure}
+
+This verification step is critical during development to ensure that the JSON keys defined in the firmware match exactly with the keys configured in the dashboard widgets. Any mismatch results in widgets displaying \textit{No data} even when the device is successfully transmitting.
+
+\subsection{Bidirectional Communication: Remote Procedure Calls}
+
+Beyond passive telemetry transmission, we implemented bidirectional communication using ThingsBoard's Remote Procedure Call (RPC) mechanism. This allows the dashboard to invoke functions on the device, enabling remote control of actuators. We registered callback functions for each controllable actuator:
+
+\begin{lstlisting}[language=C++, caption={RPC callback registration and implementation}]
+// Callback array registered with ThingsBoard SDK
+const std::array<RPC_Callback, 6U> callbacks = {
+    RPC_Callback{"setFanStatus", setFanStatus},
+    RPC_Callback{"setLedEnabled", setLedEnabled},
+    RPC_Callback{"setWaterPumpStatus", setWaterPumpStatus},
+    RPC_Callback{"getFanStatus", getFanStatus},
+    RPC_Callback{"getLedStatus", getLedStatus},
+    RPC_Callback{"getWaterPumpStatus", getWaterPumpStatus}
+};
+
+// Example RPC callback for fan control
+RPC_Response setFanStatus(const RPC_Data &data) {
+    bool newState = data;
+    fanEnabled = newState;
+    
+    // Control hardware GPIO
+    pinMode(2, OUTPUT);
+    digitalWrite(2, newState ? HIGH : LOW);
+    
+    // Update shared sensor data structure
+    updateSensorField_Fan(newState);
+    
+    Serial.printf("[CoreIOT] Fan: %s\n", newState ? "ON" : "OFF");
+    
+    // Return acknowledgment
+    return RPC_Response("setFanStatus", newState);
+}
+\end{lstlisting}
+
+When a user toggles a switch on the dashboard, the Core IOT server publishes an RPC request to the topic \texttt{v1/devices/me/rpc/request/\$request\_id}. The SDK receives this message, deserializes the JSON payload, locates the corresponding callback function by name, and invokes it with the supplied parameters. The callback executes the hardware control action and returns an \texttt{RPC\_Response} object, which the SDK serializes and publishes back to the server. This acknowledgment is crucial; without it, the dashboard switch would timeout and revert to its previous state.
+
+\section{Communication Protocol Analysis}
+
+\subsection{Protocol Stack}
+
+Our system employs a four-layer protocol stack for device-to-cloud communication:
+
+\begin{enumerate}
+    \item \textbf{Physical Layer}: IEEE 802.11 b/g/n WiFi operating in the 2.4 GHz ISM band
+    \item \textbf{Network Layer}: Internet Protocol version 4 (IPv4) with DHCP for address configuration
+    \item \textbf{Transport Layer}: Transmission Control Protocol (TCP) on port 1883
+    \item \textbf{Application Layer}: MQTT version 3.1.1 with ThingsBoard extensions
+\end{enumerate}
+
+We chose TCP as the transport protocol rather than UDP to ensure reliable, ordered delivery of messages. While TCP introduces higher latency due to connection establishment and acknowledgment overhead, it guarantees that no telemetry packets are silently dropped. For our application, where sensor readings are transmitted at 10-second intervals, the additional latency (typically <100 ms on a local network) is negligible.
+
+\subsection{Data Format and Serialization}
+
+All telemetry data is serialized using JSON (JavaScript Object Notation), a human-readable text format that balances ease of debugging with reasonable compactness. The ThingsBoard SDK handles serialization automatically, but for clarity, we examine the structure of a typical telemetry message:
+
+\begin{lstlisting}[language=json, caption={Example JSON payload transmitted to Core IOT}]
+{
+  "temperature": 28.5,
+  "humidity": 65.2,
+  "light": 850.0,
+  "moisture": 45.0,
+  "flame": 0,
+  "fanStatus": 1,
+  "neoLedEnabled": 1,
+  "waterPumpStatus": 0
+}
+\end{lstlisting}
+
+The MQTT protocol wraps this JSON payload with minimal overhead: a fixed header (2 bytes), variable header containing topic information, and the payload itself. For our typical message with eight key-value pairs, the total MQTT packet size ranges from 150--200 bytes, which is well within the ESP32's available memory and the network's MTU (Maximum Transmission Unit).
+
+\subsection{Quality of Service Configuration}
+
+MQTT supports three QoS levels:
+\begin{itemize}
+    \item \textbf{QoS 0 (At most once)}: Fire-and-forget delivery with no acknowledgment
+    \item \textbf{QoS 1 (At least once)}: Acknowledged delivery, possible duplicates
+    \item \textbf{QoS 2 (Exactly once)}: Four-way handshake guarantees single delivery
+\end{itemize}
+
+We configured our telemetry transmissions with QoS 0 to minimize network traffic and broker load. For environmental monitoring, occasional message loss is acceptable because subsequent readings provide redundancy. However, for critical RPC commands controlling actuators, the ThingsBoard SDK internally uses QoS 1 to ensure delivery while avoiding the complexity of QoS 2.
+
+\section{Thread-Safe Data Management}
+
+A critical aspect of our implementation is ensuring thread safety when multiple FreeRTOS tasks access shared sensor data. We defined a centralized data structure to hold all sensor readings:
+
+\begin{lstlisting}[language=C++, caption={Sensor data structure and thread-safe access pattern}]
+typedef struct {
+    float temperature;
+    float humidity;
+    float light_level;
+    float moisture_level;
+    bool flame_detected;
+    bool fan_enabled;
+    bool neoled_enabled;
+    bool water_pump_enabled;
+} SensorData_t;
+
+// Global primitives
+QueueHandle_t xSensorDataQueue = NULL;
+SemaphoreHandle_t xQueueMutex = NULL;
+
+// Thread-safe field update function
+void updateSensorField_Temperature(float value) {
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        SensorData_t data;
+        if (xQueuePeek(xSensorDataQueue, &data, 0) == pdTRUE) {
+            data.temperature = value;
+            xQueueOverwrite(xSensorDataQueue, &data);
+        }
+        xSemaphoreGive(xQueueMutex);
+    }
+}
+
+// Thread-safe data retrieval
+bool getSensorData(SensorData_t *data) {
+    bool success = false;
+    if (xSemaphoreTake(xQueueMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        success = (xQueuePeek(xSensorDataQueue, data, 0) == pdTRUE);
+        xSemaphoreGive(xQueueMutex);
+    }
+    return success;
+}
+\end{lstlisting}
+
+We employ a combination of FreeRTOS queue and mutex primitives to coordinate access. The queue stores a single instance of \texttt{SensorData\_t} using the overwrite strategy, ensuring that sensor tasks always write the most recent value without blocking. The mutex serializes access to the queue operations themselves, preventing race conditions when multiple tasks attempt simultaneous updates.
+
+This design pattern provides several benefits: it eliminates the risk of reading partially-updated structures (torn reads), ensures that the Core IOT task always transmits a consistent snapshot of all sensor values, and allows sensor tasks to operate independently at their natural update rates without explicit synchronization between sensors.
+
+

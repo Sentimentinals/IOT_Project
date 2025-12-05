@@ -8,6 +8,9 @@ static const int DAYLIGHT_OFFSET_SEC = 0;
 static unsigned long lastReconnectAttempt = 0;
 static const unsigned long RECONNECT_INTERVAL = 30000;  // 30 seconds
 
+// Track AP state
+static bool apInitialized = false;
+
 static void syncTimeWithNTP()
 {
     if (glob_ntp_synced) return;
@@ -27,31 +30,69 @@ static void syncTimeWithNTP()
                 timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
             break;
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        delay(1000);
+    }
+}
+
+// Check if AP is actually running
+static bool isAPRunning()
+{
+    if (WiFi.getMode() == WIFI_OFF || WiFi.getMode() == WIFI_STA) {
+        return false;
+    }
+    // Check if AP IP is valid
+    IPAddress apIP = WiFi.softAPIP();
+    return (apIP[0] != 0);
+}
+
+// Initialize or restore AP
+static void ensureAP()
+{
+    // Configure AP IP BEFORE starting AP
+    IPAddress apIP(192, 168, 4, 1);
+    IPAddress gateway(192, 168, 4, 1);
+    IPAddress subnet(255, 255, 255, 0);
+    WiFi.softAPConfig(apIP, gateway, subnet);
+    
+    // Start AP
+    bool success = WiFi.softAP(String(SSID_AP), String(PASS_AP), 1, false, 4);
+    
+    if (success) {
+        Serial.printf("[WiFi] AP Active: %s @ %s\n", 
+                      String(SSID_AP).c_str(), 
+                      WiFi.softAPIP().toString().c_str());
+        apInitialized = true;
+    } else {
+        Serial.println("[WiFi] AP Start FAILED, retrying...");
+        delay(500);
+        WiFi.softAP(String(SSID_AP), String(PASS_AP), 1, false, 4);
+        apInitialized = WiFi.softAPIP()[0] != 0;
     }
 }
 
 void startAP()
 {
-    // Always start AP mode first
+    Serial.println("[WiFi] Initializing AP+STA mode...");
+    
+    // Disable WiFi first for clean start
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+    delay(100);
+    
+    // Set AP+STA mode
     WiFi.mode(WIFI_AP_STA);
+    delay(100);
     
-    // Configure WiFi for better stability
+    // Configure for stability
     WiFi.setAutoReconnect(true);
-    WiFi.persistent(true);
+    WiFi.persistent(false);  // Don't save to flash (we manage config ourselves)
     
-    bool apStarted = WiFi.softAP(String(SSID_AP), String(PASS_AP));
-    if (apStarted) {
-        Serial.printf("[WiFi] AP Started: %s\n", String(SSID_AP).c_str());
-        Serial.printf("[WiFi] AP IP: %s\n", WiFi.softAPIP().toString().c_str());
-    } else {
-        Serial.println("[WiFi] AP Start FAILED!");
-    }
+    // Start AP
+    ensureAP();
 }
 
 void startSTA()
 {
-    // Don't try STA if no credentials
     if (WIFI_SSID.isEmpty())
     {
         Serial.println("[WiFi] No STA credentials, AP-only mode");
@@ -60,40 +101,53 @@ void startSTA()
 
     Serial.printf("[WiFi] Connecting to: %s", WIFI_SSID.c_str());
 
-    // Disconnect first if needed
-    if (WiFi.status() == WL_CONNECTED) {
-        WiFi.disconnect();
-        vTaskDelay(pdMS_TO_TICKS(500));
+    // Make sure we're in AP+STA mode
+    if (WiFi.getMode() != WIFI_AP_STA) {
+        WiFi.mode(WIFI_AP_STA);
+        delay(100);
+    }
+    
+    // Check and restore AP if needed BEFORE connecting STA
+    if (!isAPRunning()) {
+        Serial.println("\n[WiFi] AP was down, restoring...");
+        ensureAP();
     }
 
-    // Start STA connection (AP should already be running)
-    if (WIFI_PASS.isEmpty())
-    {
-        WiFi.begin(WIFI_SSID.c_str());
-    }
-    else
-    {
-        WiFi.begin(WIFI_SSID.c_str(), WIFI_PASS.c_str());
-    }
+    // Start STA connection
+    WiFi.begin(WIFI_SSID.c_str(), WIFI_PASS.c_str());
     
     int timeout = 30;
     while (WiFi.status() != WL_CONNECTED && timeout > 0)
     {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        delay(1000);
         Serial.print(".");
         timeout--;
+        
+        // Check AP is still running during connection
+        if (timeout % 5 == 0 && !isAPRunning()) {
+            ensureAP();
+        }
+    }
+    
+    // Verify AP is still running after STA connection
+    if (!isAPRunning()) {
+        Serial.println("\n[WiFi] AP lost during STA connect, restoring...");
+        ensureAP();
     }
     
     if (WiFi.status() == WL_CONNECTED)
     {
         Serial.printf("\n[WiFi] STA Connected: %s\n", WiFi.localIP().toString().c_str());
+        Serial.printf("[WiFi] AP still active: %s @ %s\n", 
+                      String(SSID_AP).c_str(), 
+                      WiFi.softAPIP().toString().c_str());
+        
         isWifiConnected = true;
         lastReconnectAttempt = millis();
     
         String wifiNotif = "{\"wifiStatus\":\"connected\",\"ssid\":\"" + WiFi.SSID() + "\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
         Webserver_sendata(wifiNotif);
     
-        // Signal that internet is available
         if (xBinarySemaphoreInternet != NULL) {
             xSemaphoreGive(xBinarySemaphoreInternet);
         }
@@ -101,7 +155,11 @@ void startSTA()
     }
     else
     {
-        Serial.println("\n[WiFi] STA Connection failed, AP still active");
+        Serial.println("\n[WiFi] STA Connection failed");
+        Serial.printf("[WiFi] AP still active: %s @ %s\n", 
+                      String(SSID_AP).c_str(), 
+                      WiFi.softAPIP().toString().c_str());
+        
         isWifiConnected = false;
     
         String wifiNotif = "{\"wifiStatus\":\"failed\"}";
@@ -111,6 +169,17 @@ void startSTA()
 
 bool Wifi_reconnect()
 {
+    // CRITICAL: Always check and restore AP
+    if (!isAPRunning()) {
+        Serial.println("[WiFi] AP not running, restoring...");
+        
+        if (WiFi.getMode() != WIFI_AP_STA) {
+            WiFi.mode(WIFI_AP_STA);
+            delay(100);
+        }
+        ensureAP();
+    }
+    
     // Check if already connected
     if (WiFi.status() == WL_CONNECTED)
     {
@@ -128,7 +197,7 @@ bool Wifi_reconnect()
     // Mark as disconnected
     if (isWifiConnected) {
         isWifiConnected = false;
-        Serial.println("[WiFi] Connection lost");
+        Serial.println("[WiFi] STA Connection lost");
     }
     
     // Rate limit reconnection attempts
@@ -139,7 +208,7 @@ bool Wifi_reconnect()
     
     // Try to reconnect if we have credentials
     if (!WIFI_SSID.isEmpty()) {
-        Serial.println("[WiFi] Attempting reconnect...");
+        Serial.println("[WiFi] Attempting STA reconnect...");
         startSTA();
     }
     

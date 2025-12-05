@@ -1,0 +1,82 @@
+\chapter*{Introduction and Objectives}
+\addcontentsline{toc}{chapter}{Introduction and Objectives}
+
+\section*{Introduction}
+
+The Internet of Things (IoT) represents a transformative paradigm in modern computing, enabling physical devices to collect, exchange, and act upon data through network connectivity. As embedded systems become increasingly accessible and cloud platforms offer robust infrastructure for device management, understanding IoT architecture has become essential for engineering students. This project serves as a comprehensive learning exercise to explore the fundamental concepts and practical implementation of an IoT system.
+
+Our project focuses on building a multi-sensor monitoring and control system using the YOLO Uno development board. The system integrates various sensors to collect environmental data and transmits this information to a cloud-based IoT platform for visualization and analysis. More importantly, the system implements bidirectional communication, allowing users to remotely control actuators connected to the device through an internet-accessible dashboard.
+
+The core principle of IoT lies in the seamless connection between the physical and digital worlds. By developing this project, we gain hands-on experience with the complete IoT technology stack, from low-level sensor interfacing and embedded firmware development to cloud platform configuration and real-time data visualization. This holistic approach provides valuable insights into how modern connected systems operate and interact.
+
+\section*{Objectives}
+
+The primary objective of this project is to design and implement a comprehensive environmental monitoring and control system that demonstrates the core capabilities of IoT technology. This system serves as an educational platform to understand how multiple sensors can be integrated with cloud platforms to enable real-time monitoring and remote control of physical devices. The environmental control system we build incorporates various sensors to continuously monitor environmental conditions and provides the ability to remotely control actuators such as fans, LEDs, and water pumps through an internet-connected dashboard. This project aims to showcase the complete IoT development cycle, from hardware integration and embedded firmware programming to cloud platform configuration and data visualization.
+
+The primary objectives of this project are structured around the fundamental aspects of IoT system development:
+
+\subsection*{Remote Device Control via Internet}
+
+The central objective of this project is to demonstrate remote device control through internet connectivity. We implement a system where actuators such as fans, LEDs, and water pumps can be controlled from anywhere with an internet connection. This showcases the core value proposition of IoT: the ability to monitor and control physical devices regardless of geographical location.
+
+\subsection*{Sensor Integration and Data Acquisition}
+
+We integrate multiple sensors to create a comprehensive data acquisition system. The project incorporates:
+\begin{itemize}
+    \item Temperature and humidity sensor (DHT11) for environmental monitoring
+    \item Light sensor for ambient light level detection
+    \item Soil moisture sensor for humidity measurement
+    \item Flame sensor for fire detection scenarios
+\end{itemize}
+
+This multi-sensor approach provides experience in interfacing with different sensor types and managing concurrent data streams within a real-time operating system environment.
+
+\subsection*{Cloud Platform Integration}
+
+We utilize the Core IOT platform (based on ThingsBoard) to establish device-to-cloud communication. The objectives include:
+\begin{itemize}
+    \item Configuring MQTT-based telemetry transmission
+    \item Implementing Remote Procedure Calls (RPC) for bidirectional communication
+    \item Designing interactive dashboards for data visualization
+    \item Understanding authentication and security mechanisms in IoT deployments
+\end{itemize}
+
+\subsection*{Over-the-Air (OTA) Firmware Update}
+
+A key objective is implementing OTA firmware update capability, enabling remote firmware deployment without physical access to the device. This feature is essential for IoT devices deployed in the field, allowing:
+\begin{itemize}
+    \item Remote bug fixes and feature updates
+    \item Reduced maintenance costs and downtime
+    \item Seamless deployment of new functionality
+\end{itemize}
+
+We implement a web-based OTA interface using the ElegantOTA library, allowing firmware uploads through the device's local network interface.
+
+\subsection*{Real-Time Operating System Implementation}
+
+The firmware is developed using FreeRTOS to manage multiple concurrent tasks efficiently. This provides practical experience with:
+\begin{itemize}
+    \item Task scheduling and priority management
+    \item Inter-task communication using queues and semaphores
+    \item Thread-safe data access patterns
+    \item Resource sharing in embedded systems
+\end{itemize}
+
+\section*{Report Structure}
+
+This report is organized into four main chapters, each covering a distinct aspect of the IoT system development:
+
+\begin{enumerate}[leftmargin=*, itemsep=0.5em]
+    \item \textbf{Chapter 1: Core IOT Platform and Dashboard Design} \\
+    This chapter covers the setup of the cloud platform, including account creation, device provisioning, telemetry transmission, and dashboard configuration with various widget types. It details the implementation of MQTT communication, RPC callbacks for remote control, and the design of interactive visualization dashboards.
+    
+    \item \textbf{Chapter 2: Hardware Architecture and Firmware Development} \\
+    This chapter details the hardware components, circuit design, and the FreeRTOS-based firmware implementation for sensor data acquisition and actuator control. It includes the integration of multiple sensors, the real-time operating system task structure, and inter-task communication mechanisms.
+    
+    \item \textbf{Chapter 3: TinyML Integration} \\
+    This chapter explores the integration of machine learning capabilities on the edge device for intelligent decision-making based on sensor data patterns. It covers model training, quantization, deployment, and inference on the YOLO Uno platform.
+    
+    \item \textbf{Chapter 4: System Integration and Testing} \\
+    This chapter presents the complete system integration, testing procedures, and evaluation of the implemented IoT solution. It includes performance analysis, reliability testing, and discussion of the system's capabilities and limitations.
+\end{enumerate}
+

@@ -1,0 +1,645 @@
+\chapter{FreeRTOS Task Synchronization and Visual Feedback}
+
+In this chapter, we describe the implementation of three real-time tasks that provide visual feedback based on sensor readings. We used FreeRTOS semaphores and queues to eliminate global variables and ensure thread-safe communication between tasks. The three tasks handle LED blinking based on temperature, NeoPixel color control based on humidity, and OLED display management with multiple states.
+
+\section{Theoretical Background: Real-Time Synchronization}
+
+In a multitasking environment like FreeRTOS, tasks often need to share resources or communicate with each other. Without proper synchronization, this can lead to race conditions (where two tasks modify data simultaneously) and data corruption. We employ three key FreeRTOS primitives to manage this complexity: Binary Semaphores, Mutexes, and Message Queues.
+
+\subsection{Binary Semaphores for Signaling}
+A Binary Semaphore can be visualized as a flag that can be either '0' (Empty) or '1' (Full). It is primarily used for **task synchronization** and **deferred interrupt processing**.
+
+\begin{itemize}
+    \item \textbf{Mechanism:} When Task A completes a job (e.g., detecting a fire), it "Gives" the semaphore (sets flag to 1). Task B, which was waiting for this event, attempts to "Take" the semaphore.
+    \item \textbf{Blocking State:} Crucially, if the semaphore is empty, Task B enters the \textbf{Blocked} state. In this state, Task B consumes \textbf{zero CPU cycles}. The FreeRTOS scheduler suspends Task B and runs other lower-priority tasks. When Task A gives the semaphore, the scheduler immediately wakes up Task B, moving it to the \textbf{Ready} state.
+    \item \textbf{Application in Our System:} We use binary semaphores to represent system states (\texttt{Normal}, \texttt{Warning}, \texttt{Critical}, \texttt{Fire}). The LED and OLED tasks block on these semaphores. This is far more efficient than a "busy-wait" loop that constantly checks a global variable.
+\end{itemize}
+
+\subsection{Mutexes for Resource Protection}
+A Mutex (Mutual Exclusion) is a special type of binary semaphore designed specifically for protecting shared resources, such as the I2C bus or a shared data structure.
+
+\begin{itemize}
+    \item \textbf{Token Passing:} A mutex acts like a token. A task must "Take" the token before accessing the resource and "Give" it back when finished. If another task holds the token, the requesting task blocks until it becomes available.
+    \item \textbf{Priority Inheritance:} Unlike standard semaphores, FreeRTOS mutexes implement \textit{Priority Inheritance}. If a high-priority task (Task H) blocks waiting for a mutex held by a low-priority task (Task L), Task L temporarily inherits Task H's priority. This prevents **Priority Inversion**, a scenario where a medium-priority task could preempt Task L, indefinitely blocking Task H.
+    \item \textbf{Application in Our System:} We use \texttt{xI2CMutex} to coordinate access to the OLED display (shared between the OLED task and setup routines) and \texttt{xWaterPumpMutex} to prevent conflicts between the automatic irrigation logic and manual web control.
+\end{itemize}
+
+\subsection{Message Queues for Inter-Task Communication}
+Queues provide a thread-safe way to send data structures between tasks. Unlike global variables, queues copy data by value into their own storage buffer. This ensures that the consumer receives a valid snapshot of the data even if the producer overwrites its local variable immediately after sending. This creates a robust, decoupled "Producer-Consumer" architecture.
+
+\section{Task Layout Overview}
+
+We implemented a producer-consumer architecture where sensor reading tasks send data to a FreeRTOS queue, and actuator control tasks read from this queue to control visual indicators. We used binary semaphores to signal system states (Normal, Warning, Critical, Fire Alert) and a mutex-protected queue to pass sensor data between tasks.
+
+This design removes the need for global variables by storing all shared data in RTOS queues and semaphores. The queue holds the sensor readings, and semaphores signal when the system state changes. Figure~\ref{fig:task_architecture} shows how tasks communicate with each other.
+
+\begin{figure}[H]
+    \centering
+    \resizebox{0.75\textwidth}{!}{
+    \begin{tikzpicture}[node distance=2cm, auto,
+        task/.style={rectangle, draw, fill=blue!15, text width=2.5cm, text centered, rounded corners, minimum height=1.2cm, font=\small},
+        data/.style={rectangle, draw, fill=green!10, text width=2cm, text centered, rounded corners, minimum height=0.8cm, font=\scriptsize},
+        arrow/.style={->, >=stealth, thick}]
+        
+        % Producer tasks (top)
+        \node[task] (sensor) {DHT11 Task\\(Producer)};
+        
+        % Shared resources (middle)
+        \node[data, below left=1.5cm and -0.5cm of sensor] (queue) {Sensor Data\\Queue};
+        \node[data, below right=1.5cm and -0.5cm of sensor] (semaphores) {State\\Semaphores};
+        
+        % Consumer tasks (bottom)
+        \node[task, below left=1.5cm and -1cm of queue] (led) {LED Blink\\Task};
+        \node[task, below=1.5cm of queue] (neo) {NeoPixel\\Task};
+        \node[task, below right=1.5cm and -1cm of semaphores] (lcd) {OLED Display\\Task};
+        
+        % Arrows
+        \draw[arrow] (sensor) -- node[left, font=\tiny] {Write} (queue);
+        \draw[arrow] (sensor) -- node[right, font=\tiny] {Signal} (semaphores);
+        \draw[arrow] (queue) -- node[left, font=\tiny] {Read} (led);
+        \draw[arrow] (queue) -- node[right, font=\tiny] {Read} (neo);
+        \draw[arrow] (queue) -- node[right, font=\tiny] {Read} (lcd);
+        \draw[arrow] (semaphores) -- node[right, font=\tiny] {Wait} (led);
+        \draw[arrow] (semaphores) -- node[left, font=\tiny] {Wait} (neo);
+        \draw[arrow] (semaphores) -- node[left, font=\tiny] {Wait} (lcd);
+    \end{tikzpicture}
+    }
+    \caption{Task synchronization architecture showing producer-consumer pattern with queue and semaphore-based communication.}
+    \label{fig:task_architecture}
+\end{figure}
+
+\subsection{Sensors and Actuators Used}
+
+Table~\ref{tab:sensor_actuator_overview} summarizes the main sensors and actuators that appear in this chapter. All raw readings are stored in the shared \texttt{SensorData\_t} structure and sent through the queue, while the actuator states are controlled through the LED, NeoPixel and Core IOT tasks.
+
+\begin{table}[H]
+\centering
+\caption{Overview of sensors and actuators used in the visual feedback tasks.}
+\label{tab:sensor_actuator_overview}
+\begin{tabular}{|l|l|l|l|p{4.5cm}|}
+\hline
+\textbf{Type} & \textbf{Name} & \textbf{Signal} & \textbf{Unit} & \textbf{Usage in This Chapter} \\
+\hline
+Sensor & DHT11 Temperature & \texttt{temperature} & \textdegree C & Drives LED blink modes and OLED messages; used in state evaluation (Normal/Warning/Critical/Fire). \\
+\hline
+Sensor & DHT11 Humidity & \texttt{humidity} & \% & Controls NeoPixel color zones and OLED text; also part of state evaluation. \\
+\hline
+Sensor & Light Sensor & \texttt{light\_level} & ADC level & Logged in the queue for future use; can be shown on OLED or dashboard. Not used in current state machine. \\
+\hline
+Sensor & Soil Moisture Sensor & \texttt{moisture\_level} & ADC level & Logged in the queue; can be used to tune watering logic and dashboard widgets. \\
+\hline
+Sensor & Flame Sensor & \texttt{flame\_detected} & Boolean & Immediately forces the system into Fire Alert state; affects LED, NeoPixel and OLED emergency layouts. \\
+\hline
+Actuator & Normal LED & GPIO 48 & On/Off (PWM) & Indicates Normal/Warning states with different blink patterns (Task 1). \\
+\hline
+Actuator & Alert LED & GPIO 47 & On/Off (PWM) & Shows Critical and Fire Alert conditions (Task 1). \\
+\hline
+Actuator & NeoPixel RGB LED & GPIO 45 & Color + Brightness & Visualizes humidity ranges and system state (Task 2). \\
+\hline
+Actuator & Fan / Water Pump & Core IOT RPC & On/Off & Controlled mainly from the Core IOT dashboard; their states are still stored in \texttt{SensorData\_t} for display and logging. \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{LED Blink Control}
+
+\subsection{LED Behavior Summary}
+
+We implemented a dual-LED indicator system to show environmental conditions visually. We connected two LEDs to GPIO pins 48 (normal LED) and 47 (alert LED). The blinking pattern changes based on the system state, which depends on temperature thresholds and flame detection.
+
+The LED task responds to four distinct system states, each triggering a unique visual pattern. This multi-state design ensures that operators can assess system status at a glance without consulting the dashboard. Table~\ref{tab:led_behaviors} summarizes the complete behavior specification.
+
+\begin{table}[H]
+\centering
+\caption{LED blinking behaviors mapped to system states and temperature conditions.}
+\label{tab:led_behaviors}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+\textbf{System State} & \textbf{Temperature Range} & \textbf{Normal LED (GPIO 48)} & \textbf{Alert LED (GPIO 47)} & \textbf{Blink Period} \\
+\hline
+Normal & 20--30\textdegree C & Slow blink (ON/OFF) & OFF & 500 ms \\
+\hline
+Warning & \textless 20\textdegree C or \textgreater 30\textdegree C & Slow blink & OFF & 500 ms \\
+\hline
+Critical & \textgreater 35\textdegree C & OFF & Fast blink & 200 ms \\
+\hline
+Fire Alert & Flame detected & OFF & Solid ON (max brightness) & -- \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{assets/led_indicator.png}
+    \caption{Dual-LED indicator system showing normal LED (GPIO 48) and alert LED (GPIO 47) mounted on the YOLO Uno board.}
+    \label{fig:led_indicator}
+\end{figure}
+
+\subsection{Semaphore-Based State Handling}
+
+The temperature monitoring task evaluates sensor readings and signals the appropriate state using binary semaphores. We defined four binary semaphores corresponding to the four system states: \texttt{xSemaphoreNormal}, \texttt{xSemaphoreWarning}, \texttt{xSemaphoreCritical}, and \texttt{xSemaphoreFireAlert}.
+
+When a state transition occurs, the monitoring task first clears all state semaphores by taking them with a zero timeout, then gives only the semaphore corresponding to the new state. This ensures that exactly one state is active at any time, preventing ambiguous conditions. The LED task can then check which semaphore is available to determine the current state.
+
+Figure~\ref{fig:led_state_machine} illustrates the state machine governing LED behavior:
+
+\begin{figure}[H]
+    \centering
+    \resizebox{0.7\textwidth}{!}{
+    \begin{tikzpicture}[node distance=2.5cm, auto,
+        state/.style={circle, draw, fill=yellow!20, text centered, minimum size=1.5cm, font=\scriptsize},
+        alert/.style={circle, draw, fill=red!30, text centered, minimum size=1.5cm, font=\scriptsize},
+        arrow/.style={->, >=stealth, thick}]
+        
+        \node[state] (normal) {Normal\\20--30\textdegree C};
+        \node[state, right=of normal] (warning) {Warning\\\textless 20 or \textgreater 30\textdegree C};
+        \node[alert, below right=1.5cm and -0.5cm of warning] (critical) {Critical\\\textgreater 35\textdegree C};
+        \node[alert, below left=1.5cm and -0.5cm of normal] (fire) {Fire\\Alert};
+        
+        \draw[arrow] (normal) edge[bend left] node[above, font=\tiny] {T out of range} (warning);
+        \draw[arrow] (warning) edge[bend left] node[below, font=\tiny] {T normal} (normal);
+        \draw[arrow] (warning) -- node[right, font=\tiny] {T \textgreater 35\textdegree C} (critical);
+        \draw[arrow] (critical) -- node[left, font=\tiny] {T \textless 35\textdegree C} (warning);
+        \draw[arrow, dashed, red] (normal) -- node[left, font=\tiny] {Flame} (fire);
+        \draw[arrow, dashed, red] (warning) -- node[above, font=\tiny, sloped] {Flame} (fire);
+        \draw[arrow, dashed, red] (critical) -- node[right, font=\tiny] {Flame} (fire);
+        \draw[arrow, bend right=70, looseness=1.5] (fire) edge node[below, font=\tiny, sloped] {Flame cleared} (normal);
+    \end{tikzpicture}
+    }
+    \caption{State machine for LED behavior showing transitions based on temperature thresholds and flame detection.}
+    \label{fig:led_state_machine}
+\end{figure}
+
+\subsection{LED Task Loop}
+
+The LED task operates in an infinite loop, continuously monitoring the sensor queue and system state. The core logic follows this pseudocode structure:
+
+\begin{verbatim}
+TASK led_blinky():
+    Initialize GPIO pins 48 and 47 as outputs
+    Initialize local variables (blinkState, sensorData)
+    
+    WHILE TRUE:
+        // Non-destructive queue read
+        Peek sensor data from xSensorDataQueue
+        Read current system state (thread-safe)
+        
+        IF state == FIRE_ALERT OR flame_detected:
+            Set Alert LED to maximum brightness (GPIO 47 = HIGH)
+            Set Normal LED off (GPIO 48 = LOW)
+            Delay 100ms
+        ELSE:
+            Set Alert LED off (GPIO 47 = LOW)
+            Toggle blinkState
+            Set Normal LED according to blinkState
+            Delay 500ms
+    END WHILE
+END TASK
+\end{verbatim}
+
+The task uses \texttt{xQueuePeek()} to read sensor data without removing it from the queue, so multiple tasks can read the same data. The \texttt{getSystemState()} function safely reads the current state using a mutex. We set the blink period to 500 ms, which is fast enough to catch attention but not too fast to be annoying.
+
+The semaphore-based state checking follows this logic: the task reads sensor data from the queue using a non-destructive peek operation, then calls \texttt{getSystemState()} which internally checks which state semaphore is available. If the state is \texttt{STATE\_FIRE\_ALERT}, the alert LED is set to maximum brightness and the normal LED is turned off. Otherwise, the normal LED blinks at 500 ms intervals while the alert LED remains off.
+
+\textbf{Role of Mutex in State Access:}
+Although the LED task runs periodically using \texttt{vTaskDelay} to maintain the blink frequency, it relies on the \texttt{xStateMutex} (implied within \texttt{getSystemState}) to safely read the shared system state. This ensures that the task never reads a partially updated state or encounters a race condition if the sensor task is simultaneously transitioning the system between Normal and Warning states.
+
+\section{Humidity NeoPixel Control}
+
+\subsection{Humidity-to-Color Map}
+
+We implemented a NeoPixel (WS2812B RGB LED) controller that changes color based on humidity levels. We chose colors that are easy to understand: green for good conditions, red for problems, and other colors for intermediate states.
+
+Table~\ref{tab:humidity_colors} defines the complete humidity-to-color mapping specification:
+
+\begin{table}[H]
+\centering
+\caption{NeoPixel color mapping for different humidity ranges with RGB values.}
+\label{tab:humidity_colors}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+\textbf{Humidity Range} & \textbf{Condition} & \textbf{State} & \textbf{Color} & \textbf{RGB Values} \\
+\hline
+\textless 30\% & Too Dry & Critical & Red & (255, 0, 0) \\
+\hline
+30--40\% & Dry & Warning & Orange & (255, 100, 0) \\
+\hline
+40--60\% & Ideal & Normal & Green & (0, 255, 0) \\
+\hline
+60--70\% & Acceptable & Normal & Cyan & (0, 200, 255) \\
+\hline
+\textgreater 70\% & Too Humid & Warning & Purple & (150, 0, 255) \\
+\hline
+\end{tabular}
+\end{table}
+
+We created five color zones to give more detailed feedback. The 40--60\% range shows green (ideal conditions), while other ranges show cyan (acceptable), orange (dry warning), or purple (too humid). If humidity drops below 30\%, we show red to indicate a critical condition.
+
+\subsection{State-Based Effects}
+
+The NeoPixel behavior changes based on the system state. In Normal state, it shows a solid color matching the humidity level. In Warning or Critical states, it blinks to catch attention. During Fire Alert, it shows solid bright red at maximum brightness, overriding all other logic.
+
+Figure~\ref{fig:neopixel_flow} presents the decision flow implemented in the NeoPixel task:
+
+\begin{figure}[H]
+    \centering
+    \resizebox{0.6\textwidth}{!}{
+    \begin{tikzpicture}[node distance=1.5cm, auto,
+        decision/.style={diamond, draw, fill=orange!20, text width=2cm, text centered, aspect=2, font=\tiny},
+        process/.style={rectangle, draw, fill=blue!15, text width=2.5cm, text centered, rounded corners, minimum height=0.8cm, font=\tiny},
+        terminal/.style={rectangle, draw, fill=green!15, text width=2.5cm, text centered, rounded corners, minimum height=0.8cm, font=\tiny},
+        arrow/.style={->, >=stealth}]
+        
+        \node[terminal] (start) {Read Queue \& State};
+        \node[decision, below=of start] (enabled) {LED\\Enabled?};
+        \node[decision, below=of enabled] (fire) {Fire\\Alert?};
+        \node[decision, below=of fire] (critical) {Warning/\\Critical?};
+        
+        \node[process, right=2cm of enabled] (off) {Turn OFF};
+        \node[process, right=2cm of fire] (fireled) {Solid Bright Red\\(255 brightness)};
+        \node[process, right=2cm of critical] (blink) {Blink Color\\(300ms interval)};
+        \node[process, below=of critical] (solid) {Solid Color\\(50 brightness)};
+        
+        \node[terminal, below=of solid] (end) {Delay 50ms};
+        
+        \draw[arrow] (start) -- (enabled);
+        \draw[arrow] (enabled) -- node[left, font=\tiny] {Yes} (fire);
+        \draw[arrow] (enabled) -- node[above, font=\tiny] {No} (off);
+        \draw[arrow] (fire) -- node[left, font=\tiny] {No} (critical);
+        \draw[arrow] (fire) -- node[above, font=\tiny] {Yes} (fireled);
+        \draw[arrow] (critical) -- node[above, font=\tiny] {Yes} (blink);
+        \draw[arrow] (critical) -- node[left, font=\tiny] {No} (solid);
+        
+        \draw[arrow] (off) |- (end);
+        \draw[arrow] (fireled) |- (end);
+        \draw[arrow] (blink) |- (end);
+        \draw[arrow] (solid) -- (end);
+    \end{tikzpicture}
+    }
+    \caption{NeoPixel control flow showing decision logic based on LED enable status and system state.}
+    \label{fig:neopixel_flow}
+\end{figure}
+
+\subsection{NeoPixel Task Loop}
+
+The NeoPixel task implements a hierarchical priority system where fire alerts override all other conditions. The pseudocode structure demonstrates this layered decision logic:
+
+\begin{verbatim}
+FUNCTION getColorByHumidity(humidity):
+    IF humidity < 30: RETURN Red(255,0,0)
+    ELSE IF humidity < 40: RETURN Orange(255,100,0)
+    ELSE IF humidity <= 60: RETURN Green(0,255,0)
+    ELSE IF humidity <= 70: RETURN Cyan(0,200,255)
+    ELSE: RETURN Purple(150,0,255)
+END FUNCTION
+
+TASK neo_blinky():
+    Initialize NeoPixel strip on GPIO 45
+    Set default brightness to 50
+    
+    WHILE TRUE:
+        Read sensor data from queue
+        Read current system state
+        
+        IF LED disabled (via RPC control):
+            Turn off LED
+            CONTINUE
+        END IF
+        
+        IF state == FIRE_ALERT OR flame detected:
+            Set brightness to 255 (maximum)
+            Display solid bright red
+        ELSE IF state == WARNING OR CRITICAL:
+            Set brightness based on severity (70 or 100)
+            Get color from humidity mapping
+            Blink color at 300ms intervals
+        ELSE (Normal state):
+            Set brightness to 50 (power saving)
+            Get color from humidity mapping
+            Display solid color
+        END IF
+        
+        Delay 50ms
+    END WHILE
+END TASK
+\end{verbatim}
+
+The color selection function checks humidity ranges to pick the right color. We adjust brightness to save power during normal operation (brightness 50) and make alerts more visible (brightness 70 for warnings, 100 for critical). This makes critical states stand out even when using the same color.
+
+The semaphore-based state checking works as follows: the task first checks if the LED is enabled via RPC control by reading from the sensor data queue. If disabled, the LED remains off. Otherwise, it calls \texttt{getSystemState()} to determine the current system state. Based on the state semaphore, the task selects the appropriate behavior: fire alert displays solid bright red at maximum brightness, warning/critical states blink the humidity-based color at 300 ms intervals, and normal state displays a solid color at reduced brightness.
+
+\section{OLED Status Display}
+
+\subsection{OLED Layout Modes}
+
+We implemented an OLED display (SSD1306, 128x64 pixels) that shows environmental data with different layouts based on the system state. In Normal state, it shows detailed temperature and humidity readings. In Warning or Critical states, it highlights the problem. In Fire Alert, it shows an emergency message.
+
+Table~\ref{tab:oled_states} enumerates the display states and their visual characteristics:
+
+\begin{table}[H]
+\centering
+\caption{OLED display states with corresponding visual elements and trigger conditions.}
+\label{tab:oled_states}
+\begin{tabular}{|l|p{3cm}|p{4cm}|p{4cm}|}
+\hline
+\textbf{Display State} & \textbf{Trigger Condition} & \textbf{Visual Elements} & \textbf{Information Displayed} \\
+\hline
+Normal & 20--30\textdegree C and 40--70\% humidity & Clean layout, comfort status (IDEAL/GOOD), smiley icon & Full temp/humidity values, status text \\
+\hline
+Warning & Temperature or humidity outside normal range & Blinking border (500ms), warning message (HOT/COLD/DRY/HUMID), exclamation icon & Abbreviated readings, specific warning reason \\
+\hline
+Critical & Temperature \textgreater 35\textdegree C or humidity \textless 30\% & Inverted header (flashing), action message, large exclamation & Temperature, humidity, corrective action text \\
+\hline
+Fire Alert & Flame detected & Full screen flash (white/black), FIRE!! text, EVACUATE NOW message & Emergency alert only, no sensor data \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{assets/oled_display.png}
+    \caption{OLED screen on the YOLO Uno board showing temperature and humidity with different layouts for each state.}
+    \label{fig:oled_display_real}
+\end{figure}
+
+\subsection{State Selection Flow}
+
+The OLED task checks which state semaphore is available to decide which display function to call. Instead of constantly checking variables, the semaphore approach lets the task wait until the state changes, which saves CPU time.
+
+We created separate functions for each display state: \texttt{drawNormalDisplay()}, \texttt{drawWarningDisplay()}, \texttt{drawCriticalDisplay()}, and \texttt{drawFireAlertDisplay()}. This makes the code easier to maintain and test.
+
+Figure~\ref{fig:oled_rendering} illustrates the OLED rendering pipeline:
+
+\begin{figure}[H]
+    \centering
+    \resizebox{0.8\textwidth}{!}{
+    \begin{tikzpicture}[node distance=1.3cm, auto,
+        process/.style={rectangle, draw, fill=blue!15, text width=2.8cm, text centered, rounded corners, minimum height=0.7cm, font=\scriptsize},
+        decision/.style={diamond, draw, fill=orange!20, text width=1.8cm, text centered, aspect=2.5, font=\tiny},
+        arrow/.style={->, >=stealth}]
+        
+        \node[process] (read) {Read Queue \& State (mutex-protected)};
+        \node[decision, below=of read] (state) {System\\State?};
+        
+        \node[process, below left=1.2cm and -2.5cm of state] (fire) {drawFireAlertDisplay()\\Full screen flash};
+        \node[process, below left=1.2cm and -0.7cm of state] (critical) {drawCriticalDisplay()\\Inverted header};
+        \node[process, below right=1.2cm and -0.7cm of state] (warning) {drawWarningDisplay()\\Blinking border};
+        \node[process, below right=1.2cm and -2.5cm of state] (normal) {drawNormalDisplay()\\Clean layout};
+        
+        \node[process, below=2.2cm of state] (i2c) {I2C Mutex Lock};
+        \node[process, below=of i2c] (display) {display.show()};
+        \node[process, below=of display] (unlock) {I2C Mutex Unlock};
+        
+        \draw[arrow] (read) -- (state);
+        \draw[arrow] (state) -| node[above, font=\tiny, pos=0.2] {Fire} (fire);
+        \draw[arrow] (state) -| node[above, font=\tiny, pos=0.2] {Critical} (critical);
+        \draw[arrow] (state) -| node[above, font=\tiny, pos=0.2] {Warning} (warning);
+        \draw[arrow] (state) -| node[above, font=\tiny, pos=0.2] {Normal} (normal);
+        
+        \draw[arrow] (fire) |- (i2c);
+        \draw[arrow] (critical) |- (i2c);
+        \draw[arrow] (warning) |- (i2c);
+        \draw[arrow] (normal) |- (i2c);
+        
+        \draw[arrow] (i2c) -- (display);
+        \draw[arrow] (display) -- (unlock);
+    \end{tikzpicture}
+    }
+    \caption{OLED rendering pipeline showing state-based function selection and I2C mutex protection.}
+    \label{fig:oled_rendering}
+\end{figure}
+
+\subsection{Queue and Semaphore Data Flow}
+
+One of the main requirements was to remove all global variables and use RTOS primitives instead. We did this by putting all sensor readings into a \texttt{SensorData\_t} structure that goes through the queue, and using semaphores for state information.
+
+We removed global variables in three ways:
+
+\begin{enumerate}
+    \item \textbf{Data in Queue:} All sensor values are stored in the \texttt{SensorData\_t} struct in the queue, so we don't need separate global variables for temperature, humidity, etc.
+    \item \textbf{State with Semaphores:} We use binary semaphores to signal system states instead of global state variables
+    \item \textbf{Task Communication:} Tasks talk to each other through queues and semaphores, not shared memory, which makes it thread-safe
+\end{enumerate}
+
+The OLED task demonstrates this pattern through its main loop structure:
+
+\begin{verbatim}
+TASK temp_humi_oled():
+    Initialize OLED display (with I2C mutex protection)
+    Initialize DHT11 sensor
+    
+    WHILE TRUE:
+        Read temperature and humidity from DHT11
+        Validate readings
+        
+        // Pack data into struct (no global variables)
+        sensorData.temperature = temperature
+        sensorData.humidity = humidity
+        
+        // Evaluate state using pure function
+        newState = evaluateSystemState(temp, humidity, flame)
+        
+        // Update semaphores (thread-safe)
+        updateSystemState(newState)
+        
+        // Send to queue for other tasks
+        sendSensorData(sensorData)
+        
+        // Render display based on state
+        Acquire I2C mutex
+        currentState = getSystemState()
+        SWITCH currentState:
+            CASE FIRE_ALERT: drawFireAlertDisplay()
+            CASE CRITICAL: drawCriticalDisplay()
+            CASE WARNING: drawWarningDisplay()
+            CASE NORMAL: drawNormalDisplay()
+        Release I2C mutex
+        
+        // Adaptive delay based on urgency
+        IF state >= WARNING: Delay 300ms
+        ELSE: Delay 1000ms
+    END WHILE
+END TASK
+\end{verbatim}
+
+The state evaluation is implemented as a pure function with no side effects:
+
+\begin{verbatim}
+FUNCTION evaluateSystemState(temp, humidity, flame):
+    IF flame: RETURN FIRE_ALERT
+    IF temp > 35 OR humidity < 30: RETURN CRITICAL
+    IF temp < 20 OR temp > 30 OR humidity < 40 OR humidity > 70:
+        RETURN WARNING
+    RETURN NORMAL
+END FUNCTION
+\end{verbatim}
+
+The state update function handles semaphore signaling with mutex protection, ensuring atomic state transitions:
+
+\begin{verbatim}
+FUNCTION updateSystemState(newState):
+    Acquire state mutex
+    IF newState != currentState:
+        // Clear all semaphores atomically
+        Take all state semaphores (timeout = 0)
+        
+        // Give only the active state semaphore
+        SWITCH newState:
+            CASE NORMAL: Give xSemaphoreNormal
+            CASE WARNING: Give xSemaphoreWarning
+            CASE CRITICAL: Give xSemaphoreCritical
+            CASE FIRE_ALERT: Give xSemaphoreFireAlert
+        
+        currentState = newState
+    Release state mutex
+END FUNCTION
+\end{verbatim}
+
+This architecture completely eliminates global variable dependencies by using FreeRTOS queues for data passing and semaphores for state signaling, achieving deterministic thread-safe inter-task communication without shared memory vulnerabilities.
+
+The OLED task works like this: it reads temperature and humidity from the DHT sensor, checks if the readings are valid, and puts them into a \texttt{SensorData\_t} structure. This structure is sent to the queue so other tasks can read it, avoiding global variables.
+
+To determine the system state, we call \texttt{evaluateSystemState()} which takes sensor readings and returns the state based on thresholds. This function doesn't use any global variables. Then we call \texttt{updateSystemState()} to update the semaphores.
+
+The \texttt{updateSystemState()} function works atomically: it first takes a mutex, then clears all state semaphores by taking them with zero timeout, and finally gives only the semaphore for the new state. This way, only one state semaphore is available at a time, so other tasks can check which state is active.
+
+For displaying, the task takes the I2C mutex before writing to the OLED, calls \texttt{getSystemState()} to check which state semaphore is available, and then calls the right display function. We use different delays: 300 ms during warnings/critical states for faster updates, and 1000 ms during normal operation to save CPU.
+
+\section{Light Intensity Processing}
+
+\subsection{Signal Conditioning and Conversion}
+
+The light sensor task functions as a pure producer in our architecture. It acquires analog voltage readings from the photoresistor circuit and converts them into meaningful lux units. The conversion process is non-trivial due to the logarithmic response of the human eye and the sensor's characteristics.
+
+We implemented a digital signal processing pipeline that includes:
+\begin{itemize}
+    \item \textbf{Input Constraining:} Clamping raw ADC values to the linear region of the sensor.
+    \item \textbf{Exponential Mapping:} Converting linear ADC steps to a logarithmic lux scale.
+    \item \textbf{Smoothing Filter:} Applying an Exponential Moving Average (EMA) to reduce measurement noise.
+\end{itemize}
+
+\subsection{Implementation Logic}
+
+The task operates independently, publishing processed values to the shared sensor queue.
+
+\begin{verbatim}
+TASK sensor_light_task():
+    Initialize ADC on GPIO 1
+    Initialize smoothedLux = 0
+    ALPHA = 0.3 // Smoothing factor
+    
+    WHILE TRUE:
+        rawADC = analogRead(LIGHT_SENSOR_PIN)
+        constrained = constrain(rawADC, 100, 4000)
+        
+        // Normalize to 0.0 - 1.0
+        normalized = (constrained - 100) / 3900.0
+        
+        // Exponential mapping: 1 lux to 65000 lux
+        luxEstimate = 1.0 * pow(65000.0, normalized)
+        
+        // Low-pass filter
+        smoothedLux = (ALPHA * luxEstimate) + ((1 - ALPHA) * smoothedLux)
+        
+        // Update shared data
+        updateSensorField_Light(smoothedLux)
+        
+        Delay 1000ms
+    END WHILE
+END TASK
+\end{verbatim}
+
+\section{Soil Moisture and Automated Irrigation}
+
+\subsection{Hybrid Producer-Consumer Architecture}
+
+The water pump task represents a hybrid producer-consumer model. It consumes moisture data from the shared queue to make control decisions (Consumer role) and produces pump status updates back to the system (Producer role).
+
+This task manages the water pump actuator using a robust hysteresis control algorithm to prevent rapid switching cycles. It also integrates a manual override mechanism controlled via the dashboard, which requires careful synchronization using a mutex to prevent conflict between automatic logic and user commands.
+
+\subsection{Control Logic with Safety Timeout}
+
+The implementation prioritizes user commands but includes a safety timeout to revert to automatic mode, preventing flooding accidents.
+
+\begin{verbatim}
+TASK sensor_water_pump_task():
+    Initialize Pump GPIO as OUTPUT
+    Create xWaterPumpMutex
+    
+    WHILE TRUE:
+        // Consume latest sensor data
+        Get sensorData from Queue
+        
+        Acquire xWaterPumpMutex
+        
+        // Check manual mode expiration
+        IF manualModeActive AND (millis() > manualTimeout):
+            manualModeActive = FALSE
+        
+        IF manualModeActive:
+            pumpState = manualState
+        ELSE:
+            // Auto mode with Hysteresis
+            IF moisture < 30.0 AND pumpState == OFF:
+                pumpState = ON
+            ELSE IF moisture > 60.0 AND pumpState == ON:
+                pumpState = OFF
+        
+        Release xWaterPumpMutex
+        
+        // Actuate hardware
+        digitalWrite(PUMP_PIN, pumpState)
+        
+        // Update system status
+        updateSensorField_WaterPump(pumpState)
+        
+        Delay 500ms
+    END WHILE
+END TASK
+\end{verbatim}
+
+\textbf{Mutex for Conflict Prevention:}
+The \texttt{xWaterPumpMutex} plays a vital role in this task. Since the water pump can be controlled by two independent sources—the automatic logic in this task and the manual override commands from the Web Server task (via RPC)—there is a risk of conflicting write operations. The mutex ensures mutual exclusion: if the Web Server is updating the manual mode status, the automatic task must wait until that operation is complete before it can read or write the pump state. This guarantees data integrity and prevents "glitchy" actuator behavior.
+
+\section{Critical Safety Monitoring (Flame Detection)}
+
+\subsection{High-Priority Event Detection}
+
+The flame detection task is assigned the highest priority in our system (Priority 4) to ensure immediate response to fire hazards. Unlike other monitoring tasks that report data periodically, this task operates as a watchdog that can trigger a system-wide state transition to \texttt{STATE\_FIRE\_ALERT}.
+
+To prevent false alarms caused by transient infrared noise (e.g., remote controls or sunlight glint), we implemented a debouncing state machine. This requires multiple consecutive positive readings before confirming a fire event.
+
+\subsection{Debouncing Algorithm}
+
+The logic ensures reliability by validating the signal stability over a short time window.
+
+\begin{verbatim}
+TASK sensor_flame_task():
+    Initialize Flame Sensor GPIO 10
+    flameCounter = 0
+    confirmedState = FALSE
+    
+    WHILE TRUE:
+        rawVal = analogRead(FLAME_PIN)
+        isFlame = (rawVal < THRESHOLD)
+        
+        IF isFlame:
+            flameCounter++
+            IF flameCounter >= 3 AND !confirmedState:
+                confirmedState = TRUE
+                // Critical State Transition
+                updateSystemState(STATE_FIRE_ALERT)
+        ELSE:
+            flameCounter = 0
+            IF confirmedState:
+                confirmedState = FALSE
+                // Clear Alert
+                updateSystemState(STATE_NORMAL)
+        
+        // Update shared data
+        updateSensorField_Flame(confirmedState)
+        
+        Delay 300ms // Fast sampling
+    END WHILE
+END TASK
+\end{verbatim}

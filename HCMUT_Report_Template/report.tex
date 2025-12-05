@@ -1,0 +1,123 @@
+\documentclass[12pt]{report}
+
+\usepackage{hcmut-report}
+\usepackage{codespace}
+
+% Sub-preambles
+% https://github.com/MartinScharrer/standalone
+
+% Encodings
+\usepackage{amsmath,amssymb,gensymb,textcomp}
+
+% Better tables
+% Wide tables go to https://tex.stackexchange.com/q/332902
+\usepackage{array,multicol,multirow,siunitx,tabularx}
+
+% Better enum
+\usepackage{enumitem}
+
+% Graphics
+\usepackage{caption,float}
+
+% Code listings
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Code style configuration
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=4,
+    frame=single,
+    framesep=3pt,
+    xleftmargin=15pt,
+    framexleftmargin=15pt
+}
+\lstset{style=mystyle}
+
+% TikZ for diagrams
+\usetikzlibrary{shapes,arrows,positioning}
+
+% Allow setting >max< width of figure
+% Remove if unneeded
+\usepackage[export]{adjustbox} % 'export' allows adjustbox keys in \includegraphics
+\usepackage{mwe}
+
+% Chapter and section formatting
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-20pt}{40pt}
+
+% Custom commands
+% Remove if unneeded
+\newcommand*\mean[1]{\bar{#1}}
+
+\ocoursename{Internet of Things Application Development}
+\oreporttype{Final Project Report}
+\title{Smart Environmental Monitoring System with TinyML Integration}
+\oadvisor{Dr. Le Trong Nhan}
+\reportlayout%
+
+\begin{document}
+
+\coverpage%
+
+\section*{Member List \& Workload}
+\begin{center}
+  \begin{tabular}{clcc}
+    \toprule
+    \textbf{No.} & \textbf{Full Name} & \textbf{Student ID} & \textbf{Contribution} \\
+    \midrule
+    1 & Trần Minh Hiếu   & 2252225 & 100\% \\
+    2 & Nguyễn Đức Tài   & 2252225 & 100\% \\
+    3 & Nguyễn Thủy Tiên & 2252806 & 100\% \\
+    \bottomrule
+  \end{tabular}
+\end{center}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ==================== INTRODUCTION AND OBJECTIVES ====================
+\include{chapters/report_here/intro_and_obj}
+
+% ==================== CHAPTER 1: Core IOT Platform ====================
+\include{chapters/report_here/chapter1}
+
+% ==================== CHAPTER 2: Hardware & Firmware ====================
+\include{chapters/report_here/chapter2}
+
+% ==================== CHAPTER 3: FreeRTOS Tasks ====================
+\include{chapters/report_here/chapter3}
+
+% ==================== CHAPTER 4: System Integration & Testing ====================
+% \include{chapters/report_here/chapter4}
+
+% ==================== CHAPTER 5: Web Server & Cloud ====================
+\include{chapters/report_here/chapter5}
+
+\bibliographystyle{plain}
+\bibliography{refs}
+\nocite{*}
+
+\end{document}

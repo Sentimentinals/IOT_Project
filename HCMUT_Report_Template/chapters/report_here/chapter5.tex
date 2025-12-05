@@ -1,0 +1,153 @@
+\chapter{Web Server Interface and Cloud Integration}
+
+This chapter details the implementation of the user interface and cloud connectivity features. We designed a dual-mode network architecture where the ESP32 operates simultaneously as an Access Point (AP) for local control and a Station (STA) for cloud data publishing. This hybrid approach ensures that the device remains controllable locally even when internet connectivity is lost.
+
+\section{Embedded Web Server Design}
+
+We developed a responsive web interface hosted directly on the ESP32's flash memory using the LittleFS file system. The web server is built on the \texttt{ESPAsyncWebServer} library, which provides asynchronous request handling to maintain system responsiveness even under heavy network load.
+
+\subsection{Access Point Configuration}
+
+To ensure the device is always accessible, we configured the ESP32 to broadcast its own WiFi network. This allows users to connect directly to the device without needing an external router.
+
+\begin{itemize}
+    \item \textbf{SSID:} \texttt{YoloUNO\_AP}
+    \item \textbf{IP Address:} \texttt{192.168.4.1} (Static)
+    \item \textbf{Security:} WPA2-PSK (Password protected)
+    \item \textbf{Mode:} \texttt{WIFI\_AP\_STA} (Simultaneous AP + Station)
+\end{itemize}
+
+The network initialization logic in \texttt{task\_wifi.cpp} ensures that the AP interface remains active even while the device attempts to connect to an external WiFi network. This "AP-first" strategy prevents the device from becoming unreachable if the home WiFi credentials change or the router goes offline.
+
+\subsection{User Interface Implementation}
+
+The user interface is implemented using standard HTML5, CSS3, and JavaScript, served as static files from the device's filesystem. This separation of concerns allows us to update the UI look-and-feel without recompiling the firmware.
+
+The interface features a dashboard layout with two primary control sections:
+
+\begin{enumerate}
+    \item \textbf{Device Control Panel:}
+    \begin{itemize}
+        \item \textbf{LED Control:} A toggle switch to control the onboard LED (GPIO 48).
+        \item \textbf{Fan/Pump Control:} A secondary toggle for the high-power actuator (GPIO 2 or Pump).
+    \end{itemize}
+    
+    \item \textbf{Real-time Status:}
+    \begin{itemize}
+        \item \textbf{Sensor Readings:} Live updates of temperature, humidity, and light levels.
+        \item \textbf{Connection Status:} Indicators for WiFi signal strength and Cloud connectivity.
+    \end{itemize}
+    \end{itemize}
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    % TODO: Replace with actual screenshot of the Web Interface
+    \fbox{\parbox{0.8\textwidth}{\centering
+        \vspace{2cm}
+        \textit{[Insert screenshot of the Embedded Web Server Interface here]}\\
+        \textit{Showing LED toggle buttons and real-time sensor data}\\
+        \vspace{2cm}
+    }}
+    \caption{Embedded Web Server interface showing control buttons and sensor status.}
+    \label{fig:web_interface}
+\end{figure}
+
+\subsection{Web Communication Protocols}
+
+\subsubsection{HTTP vs. WebSocket}
+Traditional web servers use the HTTP protocol, which follows a request-response model. The client requests data, the server responds, and the connection is closed. This is inefficient for real-time control because the client must constantly poll the server to get updates.
+
+For our control interface, we chose the \textbf{WebSocket} protocol. WebSocket provides a full-duplex communication channel over a single TCP connection. Once established, the server can push data to the client immediately without waiting for a request. This significantly reduces latency and network overhead, making it ideal for controlling actuators (like LEDs) and displaying live sensor data.
+
+\subsection{WebSocket Communication}
+
+To achieve real-time performance without page reloads, we utilized the WebSocket protocol. Unlike traditional HTTP polling, WebSocket establishes a persistent, full-duplex connection between the browser and the ESP32.
+
+\begin{lstlisting}[language=C++, caption={WebSocket event handler for real-time control}]
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
+             AwsEventType type, void *arg, uint8_t *data, size_t len) {
+    if (type == WS_EVT_DATA) {
+        AwsFrameInfo *info = (AwsFrameInfo *)arg;
+        if (info->opcode == WS_TEXT) {
+            String message = String((char *)data).substring(0, len);
+            
+            // Parse JSON command
+            // Example: {"action":"toggleLed", "value":true}
+            handleWebSocketMessage(message);
+        }
+    }
+}
+\end{lstlisting}
+
+When a user clicks a button on the web interface, a JSON message is sent over the WebSocket. The ESP32 parses this message and triggers the corresponding FreeRTOS task (e.g., giving a semaphore to the LED task). Conversely, when sensor values change, the ESP32 broadcasts the new data to all connected clients immediately.
+
+\begin{figure}[H]
+    \centering
+    % TODO: Replace with actual diagram of WebSocket flow
+    \fbox{\parbox{0.8\textwidth}{\centering
+        \vspace{1.5cm}
+        \textit{[Insert diagram of WebSocket Communication Flow here]}\\
+        \textit{Client -> JSON Command -> ESP32 -> Task Notification}\\
+        \vspace{1.5cm}
+    }}
+    \caption{WebSocket communication flow for real-time device control.}
+    \label{fig:websocket_flow}
+\end{figure}
+
+\section{Cloud Integration and Data Publishing}
+
+While the local web server provides immediate control, long-term data storage and remote access are handled by the CoreIOT cloud platform.
+
+\subsection{Station Mode Connectivity}
+
+The device connects to the local WiFi network in Station (STA) mode. We implemented a robust reconnection state machine that:
+\begin{enumerate}
+    \item Attempts to connect to the configured WiFi SSID.
+    \item If connection fails, it waits for a backoff period before retrying.
+    \item Periodically checks connection health and triggers reconnection if the link is dropped.
+    \item Synchronizes system time via NTP (Network Time Protocol) upon successful connection.
+\end{enumerate}
+
+Crucially, the reconnection logic runs in a low-priority background task to avoid blocking critical sensor processing.
+
+\subsection{Data Publishing to CoreIOT}
+
+We utilize the MQTT protocol to publish sensor telemetry to the CoreIOT server (\texttt{app.coreiot.io}). The publishing logic is encapsulated in the \texttt{CORE\_IOT\_task}, which aggregates data from the shared sensor queue and transmits it securely.
+
+\textbf{Authentication Configuration:}
+The connection is authenticated using a unique Device Token. This token acts as the MQTT username, ensuring that data is routed to the correct device dashboard in the cloud.
+
+\begin{lstlisting}[language=C++, caption={CoreIOT authentication and data publishing}]
+// CoreIOT Configuration
+#define CORE_IOT_SERVER "app.coreiot.io"
+#define CORE_IOT_PORT 1883
+#define DEVICE_TOKEN "YOUR_DEVICE_TOKEN_HERE" // Replaced with actual token
+
+void publishTelemetry() {
+    if (tb.connected()) {
+        // Aggregate latest readings
+        SensorData_t data;
+        getSensorData(&data);
+        
+        // Publish to cloud
+        tb.sendTelemetryData("temperature", data.temperature);
+        tb.sendTelemetryData("humidity", data.humidity);
+        tb.sendTelemetryData("light", data.light_level);
+        
+        Serial.println("[Cloud] Data published");
+    }
+}
+\end{lstlisting}
+
+\subsection{Integration Improvements}
+
+Building upon the initial setup described in Chapter 1, we enhanced the cloud integration with several reliability features:
+
+\begin{itemize}
+    \item \textbf{Data Buffering:} Sensor readings are buffered in the FreeRTOS queue, ensuring that the latest valid reading is always available for publishing, even if the sensor task is temporarily busy.
+    \item \textbf{Connection Resilience:} The system automatically handles MQTT broker disconnections without losing state. It attempts to reconnect to the cloud independently of the WiFi connection status.
+    \item \textbf{Traffic Optimization:} Telemetry is published at a fixed interval (10 seconds) rather than on every sensor change, reducing bandwidth usage and complying with CoreIOT rate limits.
+\end{itemize}
+
+This dual-interface approach—local Web Server for low-latency control and CoreIOT Cloud for historical analysis—provides a comprehensive user experience that combines the best aspects of edge and cloud computing.
