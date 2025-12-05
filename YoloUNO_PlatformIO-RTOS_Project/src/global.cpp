@@ -1,8 +1,8 @@
 #include "global.h"
 
 // ==================== WIFI CONFIG ====================
-String WIFI_SSID = "";  
-String WIFI_PASS = "";
+String WIFI_SSID = "Thinhkhong";  
+String WIFI_PASS = "conheocon";
 
 // ==================== COREIOT CONFIG ====================
 String CORE_IOT_TOKEN = "";
@@ -207,7 +207,7 @@ SystemState_t evaluateSystemState(float temp, float humidity, bool flame) {
         return STATE_CRITICAL;
     }
     
-    if (temp < 20.0 || temp > 30.0 || humidity < 40.0 || humidity > 70.0) {
+    if (temp < 20.0 || temp > 32.0 || humidity < 40.0 || humidity > 75.0) {
         return STATE_WARNING;
     }
     
@@ -220,10 +220,10 @@ SystemState_t evaluateSystemState(float temp, float humidity, bool flame) {
 const char* getWarningReason(float temp, float humidity) {
     if (temp > 35.0) return "Too Hot";
     if (humidity < 30.0) return "Too Dry";
-    if (temp > 30.0) return "Hot";
+    if (temp > 32.0) return "Hot";
     if (temp < 20.0) return "Cold";
     if (humidity < 40.0) return "Dry";
-    if (humidity > 70.0) return "Too Humid";
+    if (humidity > 75.0) return "Too Humid";
     return "Check Environment";
 }
 

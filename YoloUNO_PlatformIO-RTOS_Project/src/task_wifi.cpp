@@ -51,6 +51,8 @@ void startAP()
 
 void startSTA()
 {
+    WIFI_SSID = "Thinhkhong";  
+    WIFI_PASS = "conheocon";
     // Don't try STA if no credentials
     if (WIFI_SSID.isEmpty())
     {

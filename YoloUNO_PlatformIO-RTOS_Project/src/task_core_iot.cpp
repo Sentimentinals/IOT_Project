@@ -34,8 +34,8 @@ RPC_Response setFanStatus(const RPC_Data &data) {
     fanEnabled = newState;
     
     pinMode(2, OUTPUT);
-    digitalWrite(2, newState ? HIGH : LOW);
-    
+    // digitalWrite(2, newState ? HIGH : LOW);
+    digitalWrite(2, newState);
     // Thread-safe update
     updateSensorField_Fan(newState);
     
@@ -49,7 +49,6 @@ RPC_Response setLedEnabled(const RPC_Data &data) {
     
     // Thread-safe update
     updateSensorField_NeoLed(newState);
-    
     Serial.printf("[CoreIOT] NeoLed: %s\n", newState ? "ON" : "OFF");
     return RPC_Response("setLedEnabled", newState);
 }
@@ -89,6 +88,7 @@ void CORE_IOT_sendata(String mode, String feed, String data)
 
 void CORE_IOT_reconnect()
 {
+    CORE_IOT_TOKEN = "u2tCHK5QKeZfxUpEEPtF";
     if (CORE_IOT_TOKEN.isEmpty() || CORE_IOT_SERVER.isEmpty())
     {
         return;
@@ -129,7 +129,8 @@ void CORE_IOT_reconnect()
 void CORE_IOT_task(void *pvParameters)
 {
     Serial.println("[CoreIOT] Task started");
-    
+    CORE_IOT_TOKEN = "u2tCHK5QKeZfxUpEEPtF";
+
     while (1)
     {
         if (xSemaphoreTake(xBinarySemaphoreInternet, portMAX_DELAY))

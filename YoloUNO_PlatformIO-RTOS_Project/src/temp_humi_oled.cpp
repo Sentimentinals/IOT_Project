@@ -20,11 +20,11 @@ static SystemState_t lastSentState = STATE_NORMAL;
 // Get specific warning message based on readings
 const char* getDisplayWarning(float temp, float humidity) {
     if (temp > 35.0) return "TOO HOT!";
-    if (temp > 30.0) return "HOT";
+    if (temp > 32.0) return "HOT";
     if (temp < 20.0) return "COLD";
     if (humidity < 30.0) return "TOO DRY!";
     if (humidity < 40.0) return "DRY";
-    if (humidity > 70.0) return "TOO HUMID";
+    if (humidity > 75.0) return "TOO HUMID";
     return "WARNING";
 }
 
@@ -35,7 +35,7 @@ const char* getNormalStatus(float temp, float humidity) {
         return "IDEAL";
     }
     // Good conditions: 20-30C and 40-70%
-    if (temp >= 20.0 && temp <= 30.0 && humidity >= 40.0 && humidity <= 70.0) {
+    if (temp >= 20.0 && temp <= 32.0 && humidity >= 40.0 && humidity <= 75.0) {
         return "GOOD";
     }
     return "OK";
