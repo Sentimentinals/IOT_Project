@@ -6,11 +6,11 @@ static const long GMT_OFFSET_SEC = 7 * 3600;
 static const int DAYLIGHT_OFFSET_SEC = 0;
 
 static unsigned long lastReconnectAttempt = 0;
-static const unsigned long RECONNECT_INTERVAL = 30000;  // 30 seconds
+static const unsigned long RECONNECT_INTERVAL = 30000;
 
-// Track AP state
 static bool apInitialized = false;
 
+// Synchronize system time with NTP server
 static void syncTimeWithNTP()
 {
     if (glob_ntp_synced) return;
@@ -34,7 +34,7 @@ static void syncTimeWithNTP()
     }
 }
 
-// Check if AP is actually running
+// Check if Access Point is running
 static bool isAPRunning()
 {
     if (WiFi.getMode() == WIFI_OFF || WiFi.getMode() == WIFI_STA) {
@@ -45,36 +45,31 @@ static bool isAPRunning()
     return (apIP[0] != 0);
 }
 
-// Initialize or restore AP - ALWAYS ensure AP+STA mode
+// Ensure Access Point is running in AP+STA mode
 static void ensureAP()
 {
-    // CRITICAL: Always ensure we're in AP+STA mode (never switch to STA-only)
     if (WiFi.getMode() != WIFI_AP_STA) {
         Serial.println("[WiFi] Mode check: switching to AP+STA...");
         WiFi.mode(WIFI_AP_STA);
-        delay(200);  // Give WiFi time to switch mode
+        delay(200);
     }
     
-    // Check if AP is already running with correct IP
     if (isAPRunning()) {
         IPAddress currentIP = WiFi.softAPIP();
         if (currentIP[0] == 192 && currentIP[1] == 168 && currentIP[2] == 4 && currentIP[3] == 1) {
-            // AP is running correctly, no need to restart
             apInitialized = true;
             return;
         }
     }
     
-    // Configure AP IP BEFORE starting AP
     IPAddress apIP(192, 168, 4, 1);
     IPAddress gateway(192, 168, 4, 1);
     IPAddress subnet(255, 255, 255, 0);
     WiFi.softAPConfig(apIP, gateway, subnet);
     delay(100);
     
-    // Start AP
     bool success = WiFi.softAP(String(SSID_AP), String(PASS_AP), 1, false, 4);
-    delay(200);  // Wait for AP to initialize
+    delay(200);
     
     if (success) {
         IPAddress actualIP = WiFi.softAPIP();
@@ -101,21 +96,19 @@ static void ensureAP()
     }
 }
 
+// Start Access Point in AP+STA mode
 void startAP()
 {
     Serial.println("[WiFi] Initializing AP+STA mode...");
     
-    // Get current mode to preserve STA connection if exists
     WiFiMode_t currentMode = WiFi.getMode();
     
-    // Only reset if we're in wrong mode (OFF or STA-only)
     if (currentMode == WIFI_OFF || currentMode == WIFI_STA) {
         WiFi.disconnect(true);
         delay(100);
         WiFi.mode(WIFI_AP_STA);
-        delay(200);  // Give WiFi time to switch mode
+        delay(200);
     } else if (currentMode == WIFI_AP_STA) {
-        // Already in correct mode, just ensure AP is running
         if (isAPRunning()) {
             Serial.println("[WiFi] AP already running in AP+STA mode");
             apInitialized = true;
@@ -123,14 +116,13 @@ void startAP()
         }
     }
     
-    // Configure for stability
-    WiFi.setAutoReconnect(false);  // We manage reconnection ourselves to avoid conflicts
-    WiFi.persistent(false);  // Don't save to flash (we manage config ourselves)
+    WiFi.setAutoReconnect(false);
+    WiFi.persistent(false);
     
-    // Start AP (will ensure AP+STA mode)
     ensureAP();
 }
 
+// Connect to WiFi network in Station mode (while maintaining AP)
 void startSTA()
 {
     if (WIFI_SSID.isEmpty())
@@ -141,19 +133,16 @@ void startSTA()
 
     Serial.printf("[WiFi] Connecting to: %s", WIFI_SSID.c_str());
 
-    // Make sure we're in AP+STA mode
     if (WiFi.getMode() != WIFI_AP_STA) {
         WiFi.mode(WIFI_AP_STA);
         delay(100);
     }
     
-    // Check and restore AP if needed BEFORE connecting STA
     if (!isAPRunning()) {
         Serial.println("\n[WiFi] AP was down, restoring...");
         ensureAP();
     }
 
-    // Start STA connection
     WiFi.begin(WIFI_SSID.c_str(), WIFI_PASS.c_str());
     
     int timeout = 30;
@@ -163,13 +152,11 @@ void startSTA()
         Serial.print(".");
         timeout--;
         
-        // Check AP is still running during connection
         if (timeout % 5 == 0 && !isAPRunning()) {
             ensureAP();
         }
     }
     
-    // Verify AP is still running after STA connection
     if (!isAPRunning()) {
         Serial.println("\n[WiFi] AP lost during STA connect, restoring...");
         ensureAP();
@@ -207,9 +194,9 @@ void startSTA()
     }
 }
 
+// Reconnect WiFi if disconnected, always maintain AP
 bool Wifi_reconnect()
 {
-    // CRITICAL: Always maintain AP+STA mode - never allow STA-only mode
     if (WiFi.getMode() != WIFI_AP_STA) {
         Serial.println("[WiFi] Mode check: switching to AP+STA...");
         WiFi.mode(WIFI_AP_STA);
@@ -217,13 +204,11 @@ bool Wifi_reconnect()
         ensureAP();
     }
     
-    // CRITICAL: Always check and restore AP (even if mode is correct)
     if (!isAPRunning()) {
         Serial.println("[WiFi] AP not running, restoring...");
         ensureAP();
     }
     
-    // Check if already connected
     if (WiFi.status() == WL_CONNECTED)
     {
         if (!isWifiConnected) {
@@ -237,19 +222,16 @@ bool Wifi_reconnect()
         return true;
     }
     
-    // Mark as disconnected
     if (isWifiConnected) {
         isWifiConnected = false;
         Serial.println("[WiFi] STA Connection lost");
     }
     
-    // Rate limit reconnection attempts
     if (millis() - lastReconnectAttempt < RECONNECT_INTERVAL) {
         return false;
     }
     lastReconnectAttempt = millis();
     
-    // Try to reconnect if we have credentials
     if (!WIFI_SSID.isEmpty()) {
         Serial.println("[WiFi] Attempting STA reconnect...");
         startSTA();

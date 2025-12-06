@@ -17,7 +17,7 @@ void sendRS485Command(byte *command, int commandSize, byte *response, int respon
     }
     else
     {
-        Serial.println("Failed to read response - - - - - -");
+        Serial.println("Failed to read response");
     }
 }
 
@@ -81,57 +81,52 @@ void Task_Read_Sensor(void *pvParameters)
 
 void Task_Send_data(void *pvParameters)
 {
-    // Relay ON command template
     const uint8_t relay_ON[][8] = {
-        {1, 5, 0, 0, 255, 0, 140, 58},  // Relay 0 ON
-        {1, 5, 0, 1, 255, 0, 221, 250}, // Relay 1 ON
-        {1, 5, 0, 2, 255, 0, 45, 250},  // Relay 2 ON
-        {1, 5, 0, 3, 255, 0, 124, 58},  // Relay 3 ON
-        {1, 5, 0, 31, 255, 0, 189, 252} // Relay ALL ON
+        {1, 5, 0, 0, 255, 0, 140, 58},
+        {1, 5, 0, 1, 255, 0, 221, 250},
+        {1, 5, 0, 2, 255, 0, 45, 250},
+        {1, 5, 0, 3, 255, 0, 124, 58},
+        {1, 5, 0, 31, 255, 0, 189, 252}
     };
 
-    // Relay OFF command template
     const uint8_t relay_OFF[][8] = {
-        {1, 5, 0, 0, 0, 0, 205, 202}, // Relay 0 OFF
-        {1, 5, 0, 1, 0, 0, 156, 10},  // Relay 1 OFF
-        {1, 5, 0, 2, 0, 0, 108, 10},  // Relay 2 OFF
-        {1, 5, 0, 3, 0, 0, 61, 202},  // Relay 3 OFF
-        {1, 5, 0, 31, 0, 0, 252, 207} // Relay ALL OFF
+        {1, 5, 0, 0, 0, 0, 205, 202},
+        {1, 5, 0, 1, 0, 0, 156, 10},
+        {1, 5, 0, 2, 0, 0, 108, 10},
+        {1, 5, 0, 3, 0, 0, 61, 202},
+        {1, 5, 0, 31, 0, 0, 252, 207}
     };
-    bool state = false; // false = bật, true = tắt
+    bool state = false;
 
     while (true)
     {
         if (!state)
         {
-            Serial.println("🟢 Đang bật từng relay...");
+            Serial.println("Turning on relays...");
             for (int i = 0; i < 4; i++)
             {
                 sendModbusCommand(relay_ON[i], sizeof(relay_ON[i]));
-                Serial.println("Bật relay " + String(i));
-                vTaskDelay(1000 / portTICK_PERIOD_MS); // Giữ 1 giây giữa mỗi lần bật
+                Serial.println("Relay " + String(i) + " ON");
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
             }
         }
         else
         {
-            Serial.println("🔴 Đang tắt từng relay...");
+            Serial.println("Turning off relays...");
             for (int i = 0; i < 4; i++)
             {
                 sendModbusCommand(relay_OFF[i], sizeof(relay_OFF[i]));
-                Serial.println("Tắt relay " + String(i));
-                vTaskDelay(1000 / portTICK_PERIOD_MS); // Giữ 1 giây giữa mỗi lần tắt
+                Serial.println("Relay " + String(i) + " OFF");
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
             }
         }
 
         if (!state)
-            Serial.println("✅ Hoàn tất bật tất cả relay!");
+            Serial.println("All relays ON");
         else
-            Serial.println("✅ Hoàn tất tắt tất cả relay!");
+            Serial.println("All relays OFF");
 
-        // Đảo trạng thái cho lần kế tiếp
         state = !state;
-
-        // Nghỉ giữa 2 chu kỳ (3 giây)
         vTaskDelay(3000 / portTICK_PERIOD_MS);
     }
 }

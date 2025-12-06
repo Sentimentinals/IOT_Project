@@ -5,8 +5,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-// --- Hardware Config ---
-#define FLAME_SENSOR_PIN 10   // D7-D8
+#define FLAME_SENSOR_PIN 10
 
 void sensor_flame_task(void *pvParameters);
 

@@ -1,10 +1,8 @@
 #include "coreiot.h"
 
-// ----------- CONFIGURE THESE! -----------
 const char* coreIOT_Server = "app.coreiot.io";  
-const char* coreIOT_Token = "g7drm1amhd3dchr379xu";   // Device Access Token
+const char* coreIOT_Token = "g7drm1amhd3dchr379xu";
 const int   mqttPort = 1883;
-// ----------------------------------------
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -80,12 +78,10 @@ void coreiot_task(void *pvParameters){
         }
         client.loop();
 
-        // Read sensor data from Queue
         if (xSensorDataQueue != NULL) {
             xQueuePeek(xSensorDataQueue, &sensorData, pdMS_TO_TICKS(100));
         }
 
-        // Build payload from queue data
         String payload = "{\"temperature\":" + String(sensorData.temperature) + 
                          ",\"humidity\":" + String(sensorData.humidity) + "}";
         

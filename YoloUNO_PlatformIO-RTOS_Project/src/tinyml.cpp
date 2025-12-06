@@ -1,6 +1,5 @@
 #include "tinyml.h"
 
-// Globals
 namespace
 {
     tflite::ErrorReporter* error_reporter = nullptr;
@@ -9,10 +8,11 @@ namespace
     TfLiteTensor* input = nullptr;
     TfLiteTensor* output = nullptr;
 
-    constexpr int kTensorArenaSize = 20 * 1024;    // ESP32 has enough RAM
+    constexpr int kTensorArenaSize = 20 * 1024;
     uint8_t tensor_arena[kTensorArenaSize];
 }
 
+// Initialize TensorFlow Lite model for anomaly detection
 void setupTinyML()
 {
     Serial.println("[TinyML] Initializing...");
@@ -47,7 +47,7 @@ void setupTinyML()
     Serial.printf("[TinyML] Input size = %d floats\n", input->bytes / 4);
 }
 
-
+// FreeRTOS task: Run TinyML inference on sensor data
 void tiny_ml_task(void* pvParameters)
 {
     vTaskDelay(pdMS_TO_TICKS(5000));
@@ -64,7 +64,6 @@ void tiny_ml_task(void* pvParameters)
 
     while (1)
     {
-        // Thread-safe read of sensor data
         if (!getSensorData(&sensorData))
         {
             Serial.println("[TinyML] Failed to get sensor data");
@@ -72,14 +71,11 @@ void tiny_ml_task(void* pvParameters)
             continue;
         }
 
-        // Validate sensor data before inference
         if (sensorData.temperature <= 0 && sensorData.humidity <= 0)
         {
-            // No valid data yet, skip inference
             vTaskDelay(pdMS_TO_TICKS(2000));
             continue;
         }
-
 
         input->data.f[0] = sensorData.temperature;
         input->data.f[1] = sensorData.humidity;
@@ -95,7 +91,6 @@ void tiny_ml_task(void* pvParameters)
 
         float y = output->data.f[0];
 
-        // Thread-safe Serial output (prevents interleaving with WiFi task)
         if (xSerialMutex != NULL && xSemaphoreTake(xSerialMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             Serial.printf("[TinyML] Input: T=%.1f H=%.1f L=%.1f M=%.1f => Output=%.3f\n",
                           sensorData.temperature, sensorData.humidity,

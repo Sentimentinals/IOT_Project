@@ -9,7 +9,6 @@ void temp_humi_monitor(void *pvParameters){
     
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    // Initialize DHT20 with I2C mutex
     if (xSemaphoreTake(xI2CMutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         dht20.begin();
         xSemaphoreGive(xI2CMutex);
@@ -21,7 +20,6 @@ void temp_humi_monitor(void *pvParameters){
         float temperature = -1;
         float humidity = -1;
         
-        // Read DHT20 with I2C mutex
         if (xSemaphoreTake(xI2CMutex, pdMS_TO_TICKS(500)) == pdTRUE) {
             dht20.read();
             temperature = dht20.getTemperature();
@@ -33,14 +31,11 @@ void temp_humi_monitor(void *pvParameters){
             temperature = humidity = -1;
         }
         
-        // Update sensor data structure
         sensorData.temperature = temperature;
         sensorData.humidity = humidity;
         
-        // Send to queue for other tasks
         sendSensorData(&sensorData);
         
-        // Send to WebSocket
         String jsonString = "";
         StaticJsonDocument<128> doc;
         doc["type"] = "sensor";

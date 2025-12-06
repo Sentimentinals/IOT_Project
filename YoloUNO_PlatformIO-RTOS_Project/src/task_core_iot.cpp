@@ -25,10 +25,10 @@ void processSharedAttributes(const Shared_Attribute_Data &data)
 {
     for (auto it = data.begin(); it != data.end(); ++it)
     {
-        // Handle shared attributes
     }
 }
 
+// RPC handler: Set fan status from CoreIOT dashboard
 RPC_Response setFanStatus(const RPC_Data &data) {
     bool newState = data;
     fanEnabled = newState;
@@ -36,36 +36,33 @@ RPC_Response setFanStatus(const RPC_Data &data) {
     pinMode(2, OUTPUT);
     digitalWrite(2, newState ? HIGH : LOW);
     
-    // Thread-safe update
     updateSensorField_Fan(newState);
     
     Serial.printf("[CoreIOT] Fan: %s\n", newState ? "ON" : "OFF");
     return RPC_Response("setFanStatus", newState);
 }
 
+// RPC handler: Set NeoLED status from CoreIOT dashboard
 RPC_Response setLedEnabled(const RPC_Data &data) {
     bool newState = data;
     neoledEnabled = newState;
     
-    // Thread-safe update
     updateSensorField_NeoLed(newState);
     
     Serial.printf("[CoreIOT] NeoLed: %s\n", newState ? "ON" : "OFF");
     return RPC_Response("setLedEnabled", newState);
 }
 
+// RPC handler: Set water pump status from CoreIOT dashboard
 RPC_Response setWaterPumpStatus(const RPC_Data &data) {
     bool newState = data;
     waterPumpEnabled = newState;
     
-    // Use dedicated function for proper manual mode handling
     setWaterPumpManual(newState);
     
     Serial.printf("[CoreIOT] Water Pump: %s (manual mode)\n", newState ? "ON" : "OFF");
     return RPC_Response("setWaterPumpStatus", newState);
 }
-
-// ==================== RPC GETTERS (used by dashboard to sync initial switch state) ====================
 
 RPC_Response getFanStatus(const RPC_Data &data) {
     (void)data; // unused
@@ -83,11 +80,9 @@ RPC_Response getWaterPumpStatus(const RPC_Data &data) {
 }
 
 const std::array<RPC_Callback, 6U> callbacks = {
-    // Setters
     RPC_Callback{"setFanStatus", setFanStatus},
     RPC_Callback{"setLedEnabled", setLedEnabled},
     RPC_Callback{"setWaterPumpStatus", setWaterPumpStatus},
-    // Getters
     RPC_Callback{"getFanStatus", getFanStatus},
     RPC_Callback{"getLedStatus", getLedStatus},
     RPC_Callback{"getWaterPumpStatus", getWaterPumpStatus}
@@ -96,6 +91,7 @@ const std::array<RPC_Callback, 6U> callbacks = {
 const Shared_Attribute_Callback attributes_callback(&processSharedAttributes, SHARED_ATTRIBUTES_LIST.cbegin(), SHARED_ATTRIBUTES_LIST.cend());
 const Attribute_Request_Callback attribute_shared_request_callback(&processSharedAttributes, SHARED_ATTRIBUTES_LIST.cbegin(), SHARED_ATTRIBUTES_LIST.cend());
 
+// Send data to CoreIOT (attribute or telemetry)
 void CORE_IOT_sendata(String mode, String feed, String data)
 {
     if (mode == "attribute")
@@ -109,6 +105,7 @@ void CORE_IOT_sendata(String mode, String feed, String data)
     }
 }
 
+// Reconnect to CoreIOT MQTT broker and subscribe to RPC
 void CORE_IOT_reconnect()
 {
     if (CORE_IOT_TOKEN.isEmpty() || CORE_IOT_SERVER.isEmpty())
@@ -148,6 +145,7 @@ void CORE_IOT_reconnect()
     }
 }
 
+// FreeRTOS task: Publish sensor data to CoreIOT cloud
 void CORE_IOT_task(void *pvParameters)
 {
     Serial.println("[CoreIOT] Task started");
@@ -173,7 +171,6 @@ void CORE_IOT_task(void *pvParameters)
     const unsigned long PUBLISH_INTERVAL = 10000;
     SensorData_t sensorData = {0};
     
-    // Alarm statistics
     uint32_t totalAlarms = 0;
     uint32_t warningCount = 0;
     uint32_t criticalCount = 0;
@@ -191,12 +188,10 @@ void CORE_IOT_task(void *pvParameters)
             {
                 lastPublish = now;
 
-                // Thread-safe read
                 getSensorData(&sensorData);
 
                 if (tb.connected())
                 {
-                    // ================== CORE SENSOR TELEMETRY ==================
                     tb.sendTelemetryData("temperature", sensorData.temperature);
                     tb.sendTelemetryData("humidity", sensorData.humidity);
                     tb.sendTelemetryData("light", sensorData.light_level);
@@ -206,11 +201,9 @@ void CORE_IOT_task(void *pvParameters)
                     tb.sendTelemetryData("neoLedEnabled", sensorData.neoled_enabled ? 1 : 0);
                     tb.sendTelemetryData("waterPumpStatus", sensorData.water_pump_enabled ? 1 : 0);
 
-                    // ================== SYSTEM STATE & ALARMS ==================
                     SystemState_t currentState = getSystemState();
                     tb.sendTelemetryData("systemState", (int)currentState);
 
-                    // Detect state transitions into warning/critical/fire to build alarm counters
                     if (currentState != lastState)
                     {
                         if (currentState == STATE_WARNING ||
@@ -234,7 +227,6 @@ void CORE_IOT_task(void *pvParameters)
                                     break;
                             }
 
-                            // Send aggregated alarm statistics
                             tb.sendTelemetryData("alarmTotalCount", (int)totalAlarms);
                             tb.sendTelemetryData("alarmWarningCount", (int)warningCount);
                             tb.sendTelemetryData("alarmCriticalCount", (int)criticalCount);
@@ -244,20 +236,17 @@ void CORE_IOT_task(void *pvParameters)
                         lastState = currentState;
                     }
 
-                    // ================== DEVICE COUNT (for dashboard widgets) ==================
                     int activeDevices = 0;
                     if (sensorData.fan_enabled) activeDevices++;
                     if (sensorData.neoled_enabled) activeDevices++;
                     if (sensorData.water_pump_enabled) activeDevices++;
                     tb.sendTelemetryData("activeDevices", activeDevices);
 
-                    // ================== WIFI HEALTH METRICS ==================
                     if (WiFi.status() == WL_CONNECTED)
                     {
-                        int32_t rssi = WiFi.RSSI(); // dBm (negative value)
+                        int32_t rssi = WiFi.RSSI();
                         tb.sendTelemetryData("wifiSignal", (int)rssi);
 
-                        // Convert RSSI to "quality" 0-100% (approximation)
                         int32_t clamped = rssi;
                         if (clamped < -100) clamped = -100;
                         if (clamped > -50)  clamped = -50;

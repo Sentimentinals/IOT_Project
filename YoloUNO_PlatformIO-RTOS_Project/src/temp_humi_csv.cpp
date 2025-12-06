@@ -1,21 +1,6 @@
 #include "temp_humi_csv.h"
 #include <time.h>
 
-/**
- * CSV DATA EXPORT - Full sensor metrics
- * 
- * Columns:
- * - datetime: Human readable timestamp (YYYY-MM-DD HH:MM:SS)
- * - timestamp: Unix timestamp (seconds)
- * - temperature: Temperature in Celsius
- * - humidity: Humidity percentage
- * - light_level: Light sensor value (0-4095)
- * - moisture_level: Soil moisture percentage (0-100%)
- * - flame_detected: Fire detection (0=No, 1=Yes)
- * - water_pump: Water pump status (0=Off, 1=On)
- * - system_state: Current state (0=Normal, 1=Warning, 2=Critical, 3=Fire)
- */
-
 static String getDateTimeString() {
     if (glob_ntp_synced) {
         time_t now = time(nullptr);
@@ -29,7 +14,6 @@ static String getDateTimeString() {
         return String(buffer);
     }
     
-    // Fallback: use uptime
     unsigned long uptime = millis() / 1000;
     int hours = uptime / 3600;
     int mins = (uptime % 3600) / 60;
@@ -60,20 +44,18 @@ static const char* getStateString(SystemState_t state) {
     }
 }
 
+// FreeRTOS task: Log sensor data to CSV file on LittleFS
 void temp_humi_csv(void *pvParameters) {
     Serial.println("[CSV] Task started");
     
-    // Create or verify CSV file with proper header
     bool needHeader = !LittleFS.exists(CSV_FILE);
     
     if (!needHeader) {
-        // Check if file has correct header
         File checkFile = LittleFS.open(CSV_FILE, "r");
         if (checkFile) {
             String firstLine = checkFile.readStringUntil('\n');
             checkFile.close();
             
-            // If header doesn't match new format, recreate file
             if (!firstLine.startsWith("datetime,timestamp")) {
                 needHeader = true;
                 LittleFS.remove(CSV_FILE);
@@ -93,12 +75,10 @@ void temp_humi_csv(void *pvParameters) {
     SensorData_t sensorData = {0};
     
     while (1) {
-        // Get sensor data from queue
         if (xSensorDataQueue != NULL) {
             xQueuePeek(xSensorDataQueue, &sensorData, pdMS_TO_TICKS(100));
         }
         
-        // Only log if we have valid temperature and humidity
         bool validData = (sensorData.temperature > 0 && sensorData.temperature < 80 &&
                          sensorData.humidity > 0 && sensorData.humidity <= 100);
         
@@ -107,7 +87,6 @@ void temp_humi_csv(void *pvParameters) {
             if (csvFile) {
                 SystemState_t currentState = getSystemState();
                 
-                // Format: datetime,timestamp,temp,humidity,light,moisture,flame,water_pump,state
                 csvFile.print(getDateTimeString());
                 csvFile.print(",");
                 csvFile.print(getTimestamp());

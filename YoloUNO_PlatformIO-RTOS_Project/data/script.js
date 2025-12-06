@@ -1,8 +1,6 @@
-// ==================== WEBSOCKET ====================
 var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
 
-// ==================== DARK MODE ====================
 function initTheme() {
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.dataset.theme = savedTheme;
@@ -25,42 +23,35 @@ function updateThemeIcon() {
     }
 }
 
-// ==================== ENVIRONMENT STATUS ====================
-// Temperature status matches LED blinky logic (led_blinky.cpp)
-// Humidity status matches NeoPixel logic (neo_blinky.cpp)
 function getEnvironmentStatus(temp, humidity) {
     let tempStatus = { text: 'Loading...', class: '' };
     let humStatus = { text: 'Loading...', class: '' };
 
-    // Temperature status - MATCHES LED BLINKY LOGIC (led_blinky.cpp)
-    // LED blinky shows temperature: < 15°C = Cold, 15-33°C = Normal, 33-40°C = Hot, >= 40°C = Critical
     if (temp !== undefined && temp !== '--') {
         const tempValue = parseFloat(temp);
         if (tempValue >= 40.0) {
-            tempStatus = { text: 'Critical', class: 'status-alert' }; // LED: Very fast blink
+            tempStatus = { text: 'Critical', class: 'status-alert' };
         } else if (tempValue >= 33.0) {
-            tempStatus = { text: 'Hot', class: 'status-alert' }; // LED: Fast blink
+            tempStatus = { text: 'Hot', class: 'status-alert' };
         } else if (tempValue >= 15.0) {
-            tempStatus = { text: 'Normal', class: 'status-comfortable' }; // LED: Normal blink
+            tempStatus = { text: 'Normal', class: 'status-comfortable' };
         } else {
-            tempStatus = { text: 'Cold', class: 'status-warning' }; // LED: Slow blink
+            tempStatus = { text: 'Cold', class: 'status-warning' };
         }
     }
 
-    // Humidity status - MATCHES NEOPIXEL LOGIC (neo_blinky.cpp)
-    // NeoPixel shows humidity: < 30% = Too Dry (Red), < 40% = Dry (Orange), <= 60% = Ideal (Green), <= 80% = Acceptable (Cyan), > 80% = Too Humid (Purple)
     if (humidity !== undefined && humidity !== '--') {
         const humValue = parseFloat(humidity);
         if (humValue < 30.0) {
-            humStatus = { text: 'Too Dry', class: 'status-alert' }; // NeoPixel: Red (Critical)
+            humStatus = { text: 'Too Dry', class: 'status-alert' };
         } else if (humValue < 40.0) {
-            humStatus = { text: 'Dry', class: 'status-warning' }; // NeoPixel: Orange (Warning)
+            humStatus = { text: 'Dry', class: 'status-warning' };
         } else if (humValue <= 60.0) {
-            humStatus = { text: 'Ideal', class: 'status-comfortable' }; // NeoPixel: Green (Normal)
+            humStatus = { text: 'Ideal', class: 'status-comfortable' };
         } else if (humValue <= 80.0) {
-            humStatus = { text: 'Acceptable', class: 'status-comfortable' }; // NeoPixel: Cyan (Normal)
+            humStatus = { text: 'Acceptable', class: 'status-comfortable' };
         } else {
-            humStatus = { text: 'Too Humid', class: 'status-warning' }; // NeoPixel: Purple (Warning)
+            humStatus = { text: 'Too Humid', class: 'status-warning' };
         }
     }
 
@@ -89,10 +80,10 @@ window.addEventListener('load', onLoad);
 function onLoad(event) {
     initTheme();
     initWebSocket();
-    loadRelays();      // Load saved relays from localStorage
-    renderRelays();    // Render relay cards
+    loadRelays();
+    renderRelays();
     loadNotifications();
-    updateActiveDevicesCount();  // Update active devices count on load
+    updateActiveDevicesCount();
 }
 
 function onOpen(event) {
@@ -135,7 +126,6 @@ function Send_Data(data) {
     }
 }
 
-// Track state alerts to avoid duplicates
 let lastStateAlert = 'normal';
 let warningAlertActive = false;
 let criticalAlertActive = false;
@@ -144,7 +134,6 @@ function onMessage(event) {
     try {
         var data = JSON.parse(event.data);
         
-        // Handle OTA update notification
         if (data.type === "ota") {
             if (data.status === "starting") {
                 addNotification(
@@ -152,13 +141,11 @@ function onMessage(event) {
                     '🔄 OTA Update',
                     'Firmware/Filesystem update starting. Device will reboot...'
                 );
-                // Show alert to user
                 alert("⚠️ OTA Update starting!\n\nDevice will reboot. Please wait and refresh the page after ~10 seconds.");
             }
             return;
         }
         
-        // Handle state alerts from ESP32
         if (data.type === "state_alert") {
             handleStateAlert(data);
             return;
@@ -182,11 +169,9 @@ function onMessage(event) {
                 const moistureEl = document.getElementById("moisture");
                 if (moistureEl) moistureEl.innerHTML = parseFloat(data.moisture).toFixed(1);
             }
-            // Water pump status update
             if (data.water_pump !== undefined) {
                 updatePumpButton(data.water_pump, data.pump_auto);
             }
-            // Fan status update (if sent from server)
             if (data.fan !== undefined) {
                 updateFanButton(data.fan);
             }
@@ -230,7 +215,6 @@ function onMessage(event) {
                     }
                 }
             }
-            // WiFi Status notifications
             if (data.wifiStatus !== undefined) {
                 if (data.wifiStatus === 'connected') {
                     addNotification(
@@ -259,25 +243,18 @@ function onMessage(event) {
                 }
             }
 
-            // Update environment status badges
             if (data.temperature !== undefined && data.humidity !== undefined) {
                 updateEnvironmentBadges(data.temperature, data.humidity);
             }
         }
 
-
     } catch (e) {
-        // Invalid JSON
     }
 }
 
-
-// ==================== UI NAVIGATION ====================
-// Relay list for custom devices (Fan & Pump now have dedicated cards)
 let relayList = [];
 let deleteTarget = null;
 
-// Load relays from localStorage on startup
 function loadRelays() {
     try {
         const saved = localStorage.getItem('iot_relays');
@@ -289,7 +266,6 @@ function loadRelays() {
     }
 }
 
-// Save relays to localStorage
 function saveRelaysToStorage() {
     try {
         localStorage.setItem('iot_relays', JSON.stringify(relayList));
@@ -299,28 +275,23 @@ function saveRelaysToStorage() {
 }
 
 function showSection(id, event) {
-    // Hide all sections including home
     document.querySelectorAll('.section').forEach(sec => {
         sec.style.display = 'none';
     });
     
-    // Show target section
     const targetSection = document.getElementById(id);
     if (targetSection) {
         targetSection.style.display = id === 'settings' ? 'flex' : 'block';
     }
 
-    // XÓA TẤT CẢ active class trước
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
     });
 
-    // THÊM active class cho item được click
     if (event && event.currentTarget) {
         event.currentTarget.classList.add('active');
     }
     
-    // Update Info section when shown
     if (id === 'info') {
         updateInfo();
         if (window.infoInterval) clearInterval(window.infoInterval);
@@ -333,10 +304,8 @@ function showSection(id, event) {
     }
 }
 
-// ==================== DEVICE FUNCTIONS ====================
 function openAddRelayDialog() {
     document.getElementById('addRelayDialog').style.display = 'flex';
-    // Clear previous inputs
     document.getElementById('relayName').value = '';
     document.getElementById('relayGPIO').value = '';
 }
@@ -401,7 +370,7 @@ function toggleRelay(id) {
         Send_Data(relayJSON);
         saveRelaysToStorage();
         renderRelays();
-        updateActiveDevicesCount();  // Update active count
+        updateActiveDevicesCount();
     }
 }
 
@@ -419,40 +388,32 @@ function confirmDelete() {
     saveRelaysToStorage();
     renderRelays();
     closeConfirmDelete();
-    updateActiveDevicesCount();  // Update active count
+    updateActiveDevicesCount();
 }
 
-
-// ==================== ACTIVE DEVICES COUNTER ====================
-// Count devices that are currently ON (NeoLED, Fan, Pump + Custom Relays)
 function updateActiveDevicesCount() {
     let activeCount = 0;
     
-    // Count main devices
     if (neoLedState) activeCount++;
     if (fanState) activeCount++;
     if (pumpState) activeCount++;
     
-    // Count custom relays that are ON
     relayList.forEach(relay => {
         if (relay.state) activeCount++;
     });
     
-    // Update display
     const totalDevicesEl = document.getElementById('totalDevices');
     if (totalDevicesEl) {
         totalDevicesEl.textContent = activeCount;
     }
 }
 
-// ==================== NEO LED CONTROL ====================
-let neoLedState = true; // Mặc định BẬT
+let neoLedState = true;
 
 function toggleNeoLED() {
     neoLedState = !neoLedState;
     updateNeoLedButton(neoLedState);
 
-    // Gửi lệnh qua WebSocket
     const ledJSON = JSON.stringify({
         page: "neoled",
         value: {
@@ -463,7 +424,6 @@ function toggleNeoLED() {
     Send_Data(ledJSON);
 }
 
-// Update NeoLED button state
 function updateNeoLedButton(state) {
     neoLedState = state;
     const btn = document.getElementById("neoLedBtn");
@@ -486,19 +446,15 @@ function updateNeoLedButton(state) {
         statusText.style.color = state ? "#10B981" : "var(--text-muted)";
     }
     
-    // Update active devices count
     updateActiveDevicesCount();
 }
 
-
-// ==================== FAN CONTROL ====================
-let fanState = false; // Mặc định TẮT
+let fanState = false;
 
 function toggleFan() {
     fanState = !fanState;
     updateFanButton(fanState);
 
-    // Gửi lệnh qua WebSocket
     const fanJSON = JSON.stringify({
         page: "fan_control",
         value: {
@@ -509,7 +465,6 @@ function toggleFan() {
     Send_Data(fanJSON);
 }
 
-// Update fan button state from server or toggle
 function updateFanButton(state) {
     fanState = state;
     const btn = document.getElementById("fanBtn");
@@ -532,20 +487,16 @@ function updateFanButton(state) {
         statusText.style.color = state ? "#10B981" : "var(--text-muted)";
     }
     
-    // Update active devices count
     updateActiveDevicesCount();
 }
 
-
-// ==================== WATER PUMP CONTROL ====================
-let pumpState = false; // Mặc định TẮT
-let pumpAutoMode = true; // Mặc định AUTO
+let pumpState = false;
+let pumpAutoMode = true;
 
 function togglePump() {
     pumpState = !pumpState;
-    updatePumpButton(pumpState, false); // Manual mode when toggled
+    updatePumpButton(pumpState, false);
 
-    // Gửi lệnh qua WebSocket
     const pumpJSON = JSON.stringify({
         page: "pump_control",
         value: {
@@ -556,7 +507,6 @@ function togglePump() {
     Send_Data(pumpJSON);
 }
 
-// Update pump button state from server
 function updatePumpButton(state, autoMode) {
     pumpState = state;
     if (autoMode !== undefined) {
@@ -594,12 +544,9 @@ function updatePumpButton(state, autoMode) {
         }
     }
     
-    // Update active devices count
     updateActiveDevicesCount();
 }
 
-
-// ==================== CSV CONTROLS ====================
 function downloadCSV() {
     window.location.href = "/download";
 }
@@ -635,7 +582,7 @@ function updateCSVInfo() {
             const sizeEl = document.getElementById("csvSize");
             
             if (data.exists && data.lines > 1) {
-                const records = data.lines - 1;  // Subtract header row
+                const records = data.lines - 1;
                 
                 if (recordsEl) recordsEl.textContent = records.toLocaleString();
                 if (sizeEl) sizeEl.textContent = formatFileSize(data.size);
@@ -660,7 +607,6 @@ function updateCSVInfo() {
 setInterval(updateCSVInfo, 10000);
 setTimeout(updateCSVInfo, 2000);
 
-// ==================== WIFI SETTINGS FORM ====================
 document.getElementById("wifiForm").addEventListener("submit", function (e) {
     e.preventDefault();
     const ssid = document.getElementById("ssid").value.trim();
@@ -688,7 +634,6 @@ document.getElementById("wifiForm").addEventListener("submit", function (e) {
     alert("✅ WiFi configuration sent!\n\nDevice will reboot and reconnect to: " + ssid);
 });
 
-// ==================== COREIOT SETTINGS FORM ====================
 document.getElementById("coreiotForm").addEventListener("submit", function (e) {
     e.preventDefault();
     const token = document.getElementById("token").value.trim();
@@ -718,8 +663,6 @@ document.getElementById("coreiotForm").addEventListener("submit", function (e) {
     alert("✅ CoreIOT configuration sent!\n\nDevice will reboot.");
 });
 
-
-// ==================== INFO SECTION ====================
 function updateInfo() {
     fetch("/info")
         .then(response => response.json())
@@ -755,7 +698,6 @@ function updateInfo() {
     fetch("/info")
         .then(response => response.json())
         .then(data => {
-            // System info
             document.getElementById("chipModel").textContent = data.chipModel || "Yolo UNO";
             document.getElementById("freeRam").textContent = (data.freeRam / 1024).toFixed(1) + " KB";
 
@@ -770,7 +712,6 @@ function updateInfo() {
         .catch(err => {});
 }
 
-// Update uptime display realtime
 function updateUptimeDisplay() {
     if (baseUptime === 0) return;
     const elapsedSeconds = Math.floor((Date.now() - lastUptimeUpdate) / 1000);
@@ -782,12 +723,9 @@ function updateUptimeDisplay() {
     }
 }
 setInterval(updateUptimeDisplay, 1000);
-// ==================== FLAME ALERT SYSTEM ====================
+
 let flameAlertActive = false;
 
-/**
- * Show fire notification toast
- */
 function showFireNotification(message = "🔥 FIRE DETECTED! Take immediate action!") {
     dismissFireNotification();
 
@@ -807,16 +745,12 @@ function showFireNotification(message = "🔥 FIRE DETECTED! Take immediate acti
     playAlertSound();
 }
 
-/**
- * Handle state alerts from ESP32 (WARNING, CRITICAL, FIRE)
- */
 function handleStateAlert(data) {
     const level = data.level;
     const reason = data.reason || 'Unknown';
     const temp = data.temperature;
     const hum = data.humidity;
     
-    // Validate sensor data - skip if invalid
     if (temp === undefined || temp === null || temp <= 0 || temp >= 80 ||
         hum === undefined || hum === null || hum <= 0 || hum > 100) {
         console.log('Invalid sensor data, skipping alert:', data);
@@ -826,7 +760,6 @@ function handleStateAlert(data) {
     const tempStr = temp.toFixed(1);
     const humStr = hum.toFixed(1);
     
-    // Avoid duplicate alerts for same level
     if (level === lastStateAlert) return;
     
     console.log('State alert:', level, reason, tempStr, humStr);
@@ -841,8 +774,6 @@ function handleStateAlert(data) {
             '⚠️ WARNING: ' + reason,
             `🌡️ Temp: ${tempStr}°C | 💧 Humidity: ${humStr}%`
         );
-        
-        // Visual indicator removed as per user request
     }
     else if (level === 'critical') {
         lastStateAlert = level;
@@ -855,14 +786,11 @@ function handleStateAlert(data) {
             `🌡️ Temp: ${tempStr}°C | 💧 Humidity: ${humStr}% - Action required!`
         );
         
-        // Play alert sound for critical
         playAlertSound();
     }
     else if (level === 'fire') {
-        // Fire is handled by flame sensor data
     }
     else if (level === 'normal') {
-        // Only notify if we were in warning/critical state before
         if (warningAlertActive || criticalAlertActive) {
             addNotification(
                 'info',
@@ -871,14 +799,12 @@ function handleStateAlert(data) {
             );
         }
         
-        // Clear all state alerts
         lastStateAlert = level;
         warningAlertActive = false;
         criticalAlertActive = false;
     }
 }
 
-// Dismiss fire notification toast
 function dismissFireNotification() {
     const notification = document.getElementById('fireNotification');
     if (notification) {
@@ -887,7 +813,6 @@ function dismissFireNotification() {
     }
 }
 
-// Play alert sound (browser beep)
 function playAlertSound() {
     try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -906,13 +831,9 @@ function playAlertSound() {
         oscillator.start(audioContext.currentTime);
         oscillator.stop(audioContext.currentTime + 0.5);
     } catch (e) {
-        // Audio not supported
     }
 }
 
-/**
- * Update alert counter badge
- */
 function updateAlertBadge() {
     const alertsTodayEl = document.getElementById('alertsToday');
     if (alertsTodayEl) {
@@ -971,7 +892,7 @@ function loadNotifications() {
 function clearStoredNotifications() {
     localStorage.removeItem('iot_notifications');
 }
-// Toggle notification panel
+
 function toggleNotificationPanel() {
     const panel = document.getElementById('notificationPanel');
     const isVisible = panel.style.display !== 'none';
@@ -986,7 +907,7 @@ function toggleNotificationPanel() {
         panel.style.animation = 'slideDown 0.3s ease-out';
     }
 }
-// Close panel when clicking outside
+
 document.addEventListener('click', function (event) {
     const panel = document.getElementById('notificationPanel');
     const bell = document.querySelector('.notification-bell');
@@ -997,20 +918,19 @@ document.addEventListener('click', function (event) {
         }
     }
 });
-// Add notification
+
 function addNotification(type, title, message, icon = '🔔') {
     const notification = {
         id: ++notificationIdCounter,
-        type: type,  // 'fire', 'wifi', 'info', 'warning'
+        type: type,
         title: title,
         message: message,
         icon: icon,
         timestamp: new Date()
     };
 
-    notifications.unshift(notification);  // Add to beginning
+    notifications.unshift(notification);
 
-    // Limit to 50 notifications
     if (notifications.length > 50) {
         notifications = notifications.slice(0, 50);
     }
@@ -1018,14 +938,13 @@ function addNotification(type, title, message, icon = '🔔') {
     updateNotificationUI();
     updateNotificationBadge();
     
-    // Update alert badge for fire notifications (syncs overview card)
     if (type === 'fire') {
         updateAlertBadge();
     }
 
     saveNotifications();
 }
-// Update notification badge
+
 function updateNotificationBadge() {
     const badge = document.getElementById('notificationBadge');
     if (badge) {
@@ -1038,7 +957,7 @@ function updateNotificationBadge() {
         }
     }
 }
-// Update notification list UI
+
 function updateNotificationUI() {
     const listEl = document.getElementById('notificationList');
     if (!listEl) return;
@@ -1068,7 +987,7 @@ function updateNotificationUI() {
 
     listEl.innerHTML = html;
 }
-// Get time ago string
+
 function getTimeAgo(date) {
     const seconds = Math.floor((new Date() - date) / 1000);
 
@@ -1077,14 +996,14 @@ function getTimeAgo(date) {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     return `${Math.floor(seconds / 86400)}d ago`;
 }
-// Dismiss single notification
+
 function dismissNotification(id) {
     notifications = notifications.filter(n => n.id !== id);
     updateNotificationUI();
     updateNotificationBadge();
     saveNotifications();
 }
-// Clear all notifications
+
 function clearAllNotifications() {
     if (notifications.length === 0) return;
 
@@ -1095,7 +1014,7 @@ function clearAllNotifications() {
     }
     clearStoredNotifications();
 }
-// Auto-refresh time ago every minute
+
 setInterval(() => {
     if (notifications.length > 0) {
         updateNotificationUI();

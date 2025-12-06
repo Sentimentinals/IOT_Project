@@ -1,9 +1,3 @@
-/* ========================================= 
-   PREMIUM IOT DASHBOARD - CORE IOT
-   Final Implementation - Zero Errors
-   ========================================= */
-
-/* === 1. GLOBAL STYLES === */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -41,7 +35,6 @@ body {
   position: relative;
 }
 
-/* === 2. 3D WAVES ANIMATED BACKGROUND === */
 body::before {
   content: '';
   position: fixed;
@@ -49,21 +42,13 @@ body::before {
   z-index: 0;
   background: linear-gradient(135deg,
       #1a0b2e 0%,
-      /* Dark purple top-left */
       #2d1650 20%,
-      /* Medium purple */
       #4a1942 35%,
-      /* Purple-pink */
       #7a1045 45%,
-      /* Pink-red */
       #16213e 60%,
-      /* Dark blue */
       #0f3460 75%,
-      /* Medium blue */
       #1862a8 85%,
-      /* Light blue */
       #1a0b2e 100%);
-  /* Back to dark */
   background-size: 400% 400%;
   animation: gradientFlow 25s ease infinite;
 }
@@ -80,7 +65,6 @@ body::before {
   }
 }
 
-/* 3D Waves Mesh Overlay */
 body::after {
   content: '';
   position: fixed;
@@ -112,7 +96,6 @@ body::after {
   }
 }
 
-/* === 3. SIDEBAR === */
 .sidebar {
   width: 220px;
   background: rgba(15, 23, 42, 0.9);
@@ -190,7 +173,6 @@ body::after {
   box-shadow: 0 4px 12px rgba(46, 147, 250, 0.3);
 }
 
-/* Connection Status */
 .connection-status {
   margin-top: auto;
   padding: 20px;
@@ -228,7 +210,6 @@ body::after {
   }
 }
 
-/* === 4. MAIN CONTENT === */
 .main-content {
   flex: 1;
   padding: 30px 50px;
@@ -272,7 +253,6 @@ header p {
   font-size: 0.95rem;
 }
 
-/* Theme Toggle */
 .theme-toggle {
   padding: 12px 16px;
   border: 1px solid var(--glass-border);
@@ -291,7 +271,6 @@ header p {
   box-shadow: 0 8px 24px rgba(46, 147, 250, 0.3);
 }
 
-/* === 5. SYSTEM OVERVIEW === */
 .system-overview {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -365,7 +344,6 @@ header p {
   font-weight: 500;
 }
 
-/* === 6. ENVIRONMENT STATUS === */
 .environment-status {
   margin-bottom: 22px;
   display: flex;
@@ -402,7 +380,6 @@ header p {
   color: #EF4444;
 }
 
-/* === 7. DASHBOARD GRID === */
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
@@ -410,7 +387,6 @@ header p {
   margin-bottom: 30px;
 }
 
-/* === 8. HERO CARD === */
 .hero-card {
   background: var(--glass-bg);
   backdrop-filter: blur(15px);
@@ -496,7 +472,6 @@ header p {
   text-align: center;
 }
 
-/* === 9. COMPACT GRID === */
 .compact-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -555,7 +530,6 @@ header p {
   font-style: italic;
 }
 
-/* === 10. FLAME CARD === */
 .flame-card {
   grid-column: 1 / -1;
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
@@ -601,7 +575,6 @@ header p {
   font-size: 2.2rem;
 }
 
-/* === 11. TOGGLE BUTTONS === */
 .toggle-btn {
   padding: 12px 30px;
   border: none;
@@ -654,7 +627,6 @@ header p {
   box-shadow: 0 6px 24px rgba(46, 147, 250, 0.7);
 }
 
-/* === 12. DATA CONTROLS === */
 .data-controls {
   background: var(--glass-bg);
   backdrop-filter: blur(10px);
@@ -719,7 +691,6 @@ header p {
   color: var(--text-muted);
 }
 
-/* Data Export Improvements */
 .export-description {
   color: var(--text-muted);
   font-size: 0.9rem;
@@ -774,7 +745,6 @@ header p {
   border: 1px solid rgba(46, 147, 250, 0.3);
 }
 
-/* === 13. SECTIONS === */
 .section {
   display: none;
 }
@@ -796,7 +766,6 @@ header p {
   }
 }
 
-/* === 14. DEVICE LIST & SETTINGS === */
 .device-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -843,7 +812,6 @@ header p {
   box-shadow: 0 12px 32px rgba(46, 147, 250, 0.7);
 }
 
-/* Settings */
 .settings-card {
   max-width: 600px;
   margin: 0 auto;
@@ -905,7 +873,6 @@ header p {
   box-shadow: 0 6px 24px rgba(46, 147, 250, 0.7);
 }
 
-/* === 15. DIALOGS === */
 .dialog-overlay {
   position: fixed;
   inset: 0;
@@ -991,7 +958,6 @@ header p {
   }
 }
 
-/* === 14. DEVICE LIST & SETTINGS === */
 .device-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1038,7 +1004,6 @@ header p {
   box-shadow: 0 12px 32px rgba(46, 147, 250, 0.7);
 }
 
-/* Settings */
 .settings-card {
   max-width: 600px;
   margin: 0 auto;
@@ -1100,7 +1065,6 @@ header p {
   box-shadow: 0 6px 24px rgba(46, 147, 250, 0.7);
 }
 
-/* === 15. DIALOGS === */
 .dialog-overlay {
   position: fixed;
   inset: 0;
@@ -1179,7 +1143,6 @@ header p {
   color: white;
 }
 
-/* === 16. RESPONSIVE === */
 @media (max-width: 1200px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
@@ -1233,7 +1196,6 @@ header p {
   }
 }
 
-/* === 17. INFO SECTION === */
 .info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -1287,7 +1249,6 @@ header p {
   font-weight: 600;
 }
 
-/* === 18. SETTINGS IMPROVEMENTS === */
 .settings-section {
   flex-direction: column;
   gap: 20px;
@@ -1336,7 +1297,6 @@ header p {
   margin-bottom: 0;
 }
 
-/* WiFi Button Style */
 .btn-wifi {
   background: linear-gradient(135deg, #10B981, #059669);
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5);
@@ -1348,7 +1308,6 @@ header p {
   box-shadow: 0 6px 24px rgba(16, 185, 129, 0.7);
 }
 
-/* CoreIOT Button Style */
 .btn-coreiot {
   background: linear-gradient(135deg, #6366F1, #8B5CF6);
   box-shadow: 0 4px 16px rgba(99, 102, 241, 0.5);
@@ -1360,7 +1319,6 @@ header p {
   box-shadow: 0 6px 24px rgba(99, 102, 241, 0.7);
 }
 
-/* === 19. COREIOT LINK CARD === */
 .coreiot-link:hover {
   border-top-color: var(--primary-cyan);
   background: rgba(46, 147, 250, 0.12);
@@ -1371,16 +1329,13 @@ header p {
   0%,
   100% {
     background-color: rgba(139, 0, 0, 0.2);
-    /* Màu đỏ sẫm */
   }
 
   50% {
     background-color: rgba(220, 38, 38, 0.35);
-    /* Màu đỏ nhạt hơn */
   }
 }
 
-/* Emergency alert state for body */
 body.emergency-alert::before {
   content: '';
   position: fixed;
@@ -1393,7 +1348,6 @@ body.emergency-alert::before {
   transition: opacity 0.8s ease-out, background 0.8s ease-out;
 }
 
-/* Thêm style cho text để vẫn đọc được khi nhấp nháy */
 body.emergency-alert .main-content {
   position: relative;
   z-index: 9999;
@@ -1408,7 +1362,6 @@ body.emergency-alert .metric-value {
   text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 0 4px rgba(0, 0, 0, 0.6);
 }
 
-/* Flame card alert animation */
 .flame-card.alert {
   background: linear-gradient(135deg,
       rgba(239, 68, 68, 0.3),
@@ -1431,7 +1384,6 @@ body.emergency-alert .metric-value {
   }
 }
 
-/* Notification Toast */
 .fire-notification {
   position: fixed;
   top: 20px;
@@ -1538,7 +1490,6 @@ body.emergency-alert .metric-value {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Alert counter badge */
 .alert-counter {
   position: absolute;
   top: -5px;
@@ -1583,7 +1534,6 @@ body.emergency-alert .metric-value {
   font-size: 1.5rem;
 }
 
-/* Notification Badge */
 .notification-badge {
   position: absolute;
   top: -5px;
@@ -1616,7 +1566,6 @@ body.emergency-alert .metric-value {
   }
 }
 
-/* Notification Panel (Dropdown) */
 .notification-panel {
   position: absolute;
   top: calc(100% + 10px);
@@ -1700,7 +1649,6 @@ body.emergency-alert .metric-value {
   color: rgba(255, 255, 255, 0.4);
 }
 
-/* Notification Item */
 .notification-item {
   background: rgba(46, 147, 250, 0.05);
   border-left: 3px solid #2E93FA;
@@ -1821,10 +1769,7 @@ body:not(.emergency-alert) .metric-value {
   transition: text-shadow 0.8s ease-out;
 }
 
-/* === WARNING/CRITICAL STATE - No top bar, just subtle effects === */
-/* Removed top bar indicators as per user request */
 
-/* === 20. MAIN DEVICES GRID (Fan & Pump) === */
 .main-devices-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1860,7 +1805,6 @@ body:not(.emergency-alert) .metric-value {
   box-shadow: 0 20px 50px rgba(46, 147, 250, 0.35);
 }
 
-/* NeoPixel Card specific */
 .neopixel-card::before {
   background: linear-gradient(90deg, #F59E0B, #EF4444, #8B5CF6, #06B6D4);
   background-size: 300% 100%;
@@ -1877,7 +1821,6 @@ body:not(.emergency-alert) .metric-value {
   background-size: 300% 100%;
 }
 
-/* Fan Card specific */
 .fan-card::before {
   background: linear-gradient(90deg, #06B6D4, #0EA5E9);
 }
@@ -1886,7 +1829,6 @@ body:not(.emergency-alert) .metric-value {
   background: linear-gradient(90deg, #22D3EE, #38BDF8);
 }
 
-/* Pump Card specific */
 .pump-card::before {
   background: linear-gradient(90deg, #10B981, #14B8A6);
 }

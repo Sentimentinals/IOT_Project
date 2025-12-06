@@ -1,6 +1,7 @@
 #include <task_handler.h>
 #include "sensor_water_pump.h"
 
+// Handle incoming WebSocket messages (device control, WiFi/CoreIOT config)
 void handleWebSocketMessage(String message)
 {
     StaticJsonDocument<256> doc;
@@ -60,7 +61,6 @@ void handleWebSocketMessage(String message)
     {
         bool enabled = doc["value"]["enabled"].as<bool>();
         
-        // Thread-safe update
         updateSensorField_NeoLed(enabled);
         
         String msg = "{\"status\":\"ok\",\"page\":\"neoled\",\"enabled\":" + String(enabled ? "true" : "false") + "}";
@@ -73,7 +73,6 @@ void handleWebSocketMessage(String message)
         pinMode(2, OUTPUT);
         digitalWrite(2, enabled ? HIGH : LOW);
         
-        // Thread-safe update
         updateSensorField_Fan(enabled);
         
         String msg = "{\"status\":\"ok\",\"page\":\"fan_control\",\"enabled\":" + String(enabled ? "true" : "false") + "}";
@@ -83,7 +82,6 @@ void handleWebSocketMessage(String message)
     {
         bool enabled = doc["value"]["enabled"].as<bool>();
         
-        // Use dedicated function for manual pump control
         setWaterPumpManual(enabled);
         
         String msg = "{\"status\":\"ok\",\"page\":\"pump_control\",\"enabled\":" + String(enabled ? "true" : "false") + ",\"mode\":\"manual\"}";

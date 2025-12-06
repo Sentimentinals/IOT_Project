@@ -6,8 +6,9 @@ AsyncWebSocket ws("/ws");
 bool webserver_isrunning = false;
 unsigned long websocket_connect_time = 0;
 static unsigned long lastCleanup = 0;
-static const unsigned long CLEANUP_INTERVAL = 5000;  // Clean up every 5 seconds
+static const unsigned long CLEANUP_INTERVAL = 5000;
 
+// Send data to all connected WebSocket clients
 void Webserver_sendata(String data)
 {
     if (ws.count() > 0)
@@ -16,6 +17,7 @@ void Webserver_sendata(String data)
     }
 }
 
+// Handle WebSocket events (connect, disconnect, message)
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
     if (type == WS_EVT_CONNECT)
@@ -44,15 +46,14 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     }
 }
 
+// Setup WebSocket and HTTP routes
 void connnectWSV()
 {
-    // Clean up any existing connections
     ws.closeAll();
     
     ws.onEvent(onEvent);
     server.addHandler(&ws);
     
-    // Serve static files with cache headers for better performance
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
               { 
                   request->send(LittleFS, "/index.html", "text/html"); 
@@ -72,13 +73,11 @@ void connnectWSV()
     server.on("/coreiot_logo.png", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(LittleFS, "/coreiot_logo.png", "image/png"); });
     
-    // Health check endpoint for stability monitoring
     server.on("/health", HTTP_GET, [](AsyncWebServerRequest *request)
               { 
                   request->send(200, "text/plain", "OK");
               });
     
-    // Download CSV endpoint with proper filename
     server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request)
               { 
                   if (LittleFS.exists("/sensor_data.csv")) {
@@ -90,7 +89,6 @@ void connnectWSV()
                   }
               });
     
-    // CSV info endpoint with more details
     server.on("/csv-info", HTTP_GET, [](AsyncWebServerRequest *request)
               { 
                   String json = "{";
@@ -100,7 +98,6 @@ void connnectWSV()
                           size_t size = file.size();
                           int lines = 0;
                           
-                          // Count lines efficiently
                           while (file.available()) {
                               if (file.read() == '\n') lines++;
                           }
@@ -109,7 +106,7 @@ void connnectWSV()
                           json += "\"exists\":true";
                           json += ",\"size\":" + String(size);
                           json += ",\"lines\":" + String(lines);
-                          json += ",\"records\":" + String(lines > 0 ? lines - 1 : 0);  // Subtract header
+                          json += ",\"records\":" + String(lines > 0 ? lines - 1 : 0);
                       } else {
                           json += "\"exists\":false,\"size\":0,\"lines\":0,\"records\":0";
                       }
@@ -120,7 +117,6 @@ void connnectWSV()
                   request->send(200, "application/json", json);
               });
     
-    // Clear CSV endpoint
     server.on("/clear", HTTP_GET, [](AsyncWebServerRequest *request)
               { 
                   if (LittleFS.remove("/sensor_data.csv")) {
@@ -130,7 +126,6 @@ void connnectWSV()
                   }
               });
 
-    // System info endpoint
     server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                   String json = "{";
@@ -159,19 +154,15 @@ void connnectWSV()
                   request->send(200, "application/json", json);
               });
     
-    // ElegantOTA setup - MUST be before server.begin()
-    // Supports both Firmware and Filesystem (LittleFS) updates
     ElegantOTA.begin(&server);
     ElegantOTA.setAutoReboot(true);
     
     ElegantOTA.onStart([]() {
         Serial.println("\n[OTA] Update starting...");
         
-        // Notify clients about OTA update
         String otaNotif = "{\"type\":\"ota\",\"status\":\"starting\"}";
         ws.textAll(otaNotif);
         
-        // Close all websocket connections before OTA
         vTaskDelay(pdMS_TO_TICKS(200));
         ws.closeAll();
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -189,7 +180,7 @@ void connnectWSV()
     ElegantOTA.onEnd([](bool success) {
         if (success) {
             Serial.println("[OTA] Success! Rebooting in 2s...");
-            vTaskDelay(pdMS_TO_TICKS(2000));  // Give time for response
+            vTaskDelay(pdMS_TO_TICKS(2000));
         } else {
             Serial.println("[OTA] Failed");
         }
@@ -206,13 +197,15 @@ void connnectWSV()
     Serial.printf("[Web] http://%s (AP)\n", WiFi.softAPIP().toString().c_str());
 }
 
+// Stop web server and close all WebSocket connections
 void Webserver_stop()
 {
     ws.closeAll();
     server.end();
-    webserver_isrunning = false;
+        webserver_isrunning = false;
 }
 
+// Maintain web server and handle OTA updates
 void Webserver_reconnect()
 {
     if (!webserver_isrunning)
@@ -220,12 +213,10 @@ void Webserver_reconnect()
         connnectWSV();
     }
     
-    // Periodic cleanup of stale WebSocket connections
     if (millis() - lastCleanup >= CLEANUP_INTERVAL) {
         ws.cleanupClients();
         lastCleanup = millis();
     }
     
-    // Process OTA
     ElegantOTA.loop();
 }

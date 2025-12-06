@@ -6,7 +6,6 @@
 #include "global.h"
 #include "task_wifi.h"
 
-// Access Point Configuration
 #ifndef SSID_AP
 #define SSID_AP "TaiHieuTien"
 #endif

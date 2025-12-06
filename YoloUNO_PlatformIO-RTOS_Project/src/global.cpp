@@ -1,12 +1,10 @@
 #include "global.h"
 
-// ==================== WIFI CONFIG ====================
 String WIFI_SSID = "";  
 String WIFI_PASS = "";
 boolean isWifiConnected = false;
 bool glob_ntp_synced = false;
 
-// ==================== COREIOT CONFIG ====================
 String CORE_IOT_TOKEN = "";
 String CORE_IOT_SERVER = "app.coreiot.io";
 int CORE_IOT_PORT = 1883;
@@ -16,26 +14,24 @@ static SystemState_t lastReportedState = STATE_NORMAL;
 
 QueueHandle_t xSensorDataQueue = NULL;
 
-// ==================== RTOS SEMAPHORES ====================
 SemaphoreHandle_t xBinarySemaphoreInternet = NULL;
 SemaphoreHandle_t xI2CMutex = NULL;
 SemaphoreHandle_t xStateMutex = NULL;
-SemaphoreHandle_t xQueueMutex = NULL;  // Mutex for queue access
-SemaphoreHandle_t xSerialMutex = NULL; // Mutex for Serial output
+SemaphoreHandle_t xQueueMutex = NULL;
+SemaphoreHandle_t xSerialMutex = NULL;
 
 SemaphoreHandle_t xSemaphoreNormal = NULL;
 SemaphoreHandle_t xSemaphoreWarning = NULL;
 SemaphoreHandle_t xSemaphoreCritical = NULL;
 SemaphoreHandle_t xSemaphoreFireAlert = NULL;
 
-
+// Initialize FreeRTOS primitives (queues, semaphores, mutexes)
 void initRTOSPrimitives() {
     xSensorDataQueue = xQueueCreate(1, sizeof(SensorData_t));
     if (xSensorDataQueue == NULL) {
         Serial.println("[RTOS] ERROR: Queue creation failed!");
     }
     
-    // Create Semaphores
     xBinarySemaphoreInternet = xSemaphoreCreateBinary();
     xI2CMutex = xSemaphoreCreateMutex();
     xStateMutex = xSemaphoreCreateMutex();
@@ -47,18 +43,15 @@ void initRTOSPrimitives() {
     xSemaphoreCritical = xSemaphoreCreateBinary();
     xSemaphoreFireAlert = xSemaphoreCreateBinary();
     
-    // Verify all created successfully
     if (xBinarySemaphoreInternet == NULL || xI2CMutex == NULL || 
         xStateMutex == NULL || xQueueMutex == NULL) {
         Serial.println("[RTOS] ERROR: Semaphore creation failed!");
     }
     
-    // Start in normal state
     if (xSemaphoreNormal != NULL) {
         xSemaphoreGive(xSemaphoreNormal);
     }
     
-    // Initialize queue with default data
     SensorData_t initData = {0};
     initData.neoled_enabled = true;
     if (xSensorDataQueue != NULL) {
@@ -68,7 +61,7 @@ void initRTOSPrimitives() {
     Serial.println("[RTOS] Primitives initialized OK");
 }
 
-
+// Thread-safe update of light sensor value
 void updateSensorField_Light(float value) {
     if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
     
@@ -82,6 +75,7 @@ void updateSensorField_Light(float value) {
     }
 }
 
+// Thread-safe update of moisture sensor value
 void updateSensorField_Moisture(float value) {
     if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
     
@@ -95,6 +89,7 @@ void updateSensorField_Moisture(float value) {
     }
 }
 
+// Thread-safe update of flame detection status
 void updateSensorField_Flame(bool value) {
     if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
     
@@ -160,6 +155,7 @@ void updateSensorField_NeoLed(bool value) {
     }
 }
 
+// Thread-safe update of fan control state
 void updateSensorField_Fan(bool value) {
     if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
     
@@ -173,6 +169,7 @@ void updateSensorField_Fan(bool value) {
     }
 }
 
+// Thread-safe read of sensor data from queue
 bool getSensorData(SensorData_t *data) {
     if (xQueueMutex == NULL || xSensorDataQueue == NULL || data == NULL) return false;
     
@@ -184,20 +181,16 @@ bool getSensorData(SensorData_t *data) {
     return success;
 }
 
-/**
- * Evaluate system state based on sensor data
- */
+// Evaluate system state based on sensor readings
 SystemState_t evaluateSystemState(float temp, float humidity, bool flame) {
     if (flame) {
         return STATE_FIRE_ALERT;
     }
     
-    // Critical: Too hot OR too dry
     if (temp > TEMP_CRITICAL || humidity < HUMIDITY_CRITICAL_LOW) {
         return STATE_CRITICAL;
     }
     
-    // Warning: Outside comfortable range
     if (temp < TEMP_NORMAL_MIN || temp > TEMP_HOT || 
         humidity < HUMIDITY_WARNING_LOW || humidity > HUMIDITY_WARNING_HIGH) {
         return STATE_WARNING;
@@ -206,9 +199,7 @@ SystemState_t evaluateSystemState(float temp, float humidity, bool flame) {
     return STATE_NORMAL;
 }
 
-/**
- * Get warning reason string based on current readings
- */
+// Get human-readable warning reason string
 const char* getWarningReason(float temp, float humidity) {
     if (temp > TEMP_CRITICAL) return "Too Hot";
     if (humidity < HUMIDITY_CRITICAL_LOW) return "Too Dry";
@@ -220,9 +211,7 @@ const char* getWarningReason(float temp, float humidity) {
     return "Check Environment";
 }
 
-/**
- * Update system state and signal semaphores
- */
+// Update system state and signal corresponding semaphore
 void updateSystemState(SystemState_t newState) {
     if (xStateMutex == NULL) return;
     
@@ -232,13 +221,11 @@ void updateSystemState(SystemState_t newState) {
         if (oldState != newState) {
             currentSystemState = newState;
             
-            // Clear all state semaphores
             if (xSemaphoreNormal) xSemaphoreTake(xSemaphoreNormal, 0);
             if (xSemaphoreWarning) xSemaphoreTake(xSemaphoreWarning, 0);
             if (xSemaphoreCritical) xSemaphoreTake(xSemaphoreCritical, 0);
             if (xSemaphoreFireAlert) xSemaphoreTake(xSemaphoreFireAlert, 0);
             
-            // Give appropriate semaphore
             switch (newState) {
                 case STATE_NORMAL:
                     if (xSemaphoreNormal) xSemaphoreGive(xSemaphoreNormal);
@@ -264,9 +251,7 @@ void updateSystemState(SystemState_t newState) {
     }
 }
 
-/**
- * Get current system state (thread-safe)
- */
+// Get current system state (thread-safe)
 SystemState_t getSystemState() {
     SystemState_t state = STATE_NORMAL;
     if (xStateMutex != NULL && xSemaphoreTake(xStateMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
@@ -276,16 +261,10 @@ SystemState_t getSystemState() {
     return state;
 }
 
-/**
- * Send sensor data to queue (OLED task uses this for temp/humidity)
- * Now uses mutex protection
- * NOTE: Only updates temp/humidity - control flags (neoled, fan, pump) 
- *       are managed separately by their respective handlers
- */
+// Update temperature and humidity from sensor data
 void sendSensorData(SensorData_t *data) {
     if (data == NULL) return;
     
-    // Update temperature and humidity using thread-safe functions
     if (data->temperature > 0) {
         updateSensorField_Temperature(data->temperature);
     }
@@ -294,9 +273,7 @@ void sendSensorData(SensorData_t *data) {
     }
 }
 
-/**
- * Receive sensor data from queue
- */
+// Receive sensor data from queue (legacy compatibility)
 bool receiveSensorData(SensorData_t *data, TickType_t timeout) {
     return getSensorData(data);
 }

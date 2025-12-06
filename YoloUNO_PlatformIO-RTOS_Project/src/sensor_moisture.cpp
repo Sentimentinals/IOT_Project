@@ -10,10 +10,8 @@ void sensor_moisture_task(void *pvParameters) {
         int rawValue = analogRead(MOISTURE_SENSOR_PIN);
         float moistureLevel = 100.0 - ((rawValue / 4095.0) * 100.0);
 
-        // Thread-safe update of moisture_level field only
         updateSensorField_Moisture(moistureLevel);
         
-        // Send to WebSocket
         String jsonString = "";
         StaticJsonDocument<128> doc;
         doc["type"] = "sensor"; 

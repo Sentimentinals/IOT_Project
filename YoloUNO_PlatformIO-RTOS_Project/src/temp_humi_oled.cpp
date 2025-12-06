@@ -4,27 +4,17 @@
 DHT dht(DHTPIN, DHTTYPE);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-/**
- * LCD DISPLAY STATES:
- * - NORMAL: Clean display with temp/humidity and comfort status
- * - WARNING: Border frame with specific warning message (TOO HUMID, HOT, COLD, DRY)
- * - CRITICAL: Inverted header with urgent action message
- * - FIRE: Full screen emergency alert
- */
-
 static unsigned long lastAnimTime = 0;
 static bool animState = false;
 static int animFrame = 0;
 static SystemState_t lastSentState = STATE_NORMAL;
 
-// Get status text for normal display (using centralized thresholds)
+// Get status text for normal conditions
 const char* getNormalStatus(float temp, float humidity) {
-    // Ideal conditions: 25-30C and 40-60%
     if (temp >= 25.0 && temp <= TEMP_NORMAL_MAX && 
         humidity >= HUMIDITY_NORMAL_MIN && humidity <= HUMIDITY_NORMAL_MAX) {
         return "IDEAL";
     }
-    // Good conditions: 20-30C and 40-70%
     if (temp >= TEMP_NORMAL_MIN && temp <= TEMP_NORMAL_MAX && 
         humidity >= HUMIDITY_NORMAL_MIN && humidity <= HUMIDITY_WARNING_HIGH) {
         return "GOOD";
@@ -32,7 +22,7 @@ const char* getNormalStatus(float temp, float humidity) {
     return "OK";
 }
 
-// Get specific warning message based on readings (using centralized thresholds)
+// Get warning message based on sensor readings
 const char* getDisplayWarning(float temp, float humidity) {
     if (temp > TEMP_CRITICAL) return "TOO HOT!";
     if (temp > TEMP_HOT) return "HOT";
@@ -47,7 +37,6 @@ const char* getDisplayWarning(float temp, float humidity) {
 void drawNormalDisplay(float temp, float humidity) {
     display.clearDisplay();
     
-    // Status header (without brackets and "Environment")
     const char* status = getNormalStatus(temp, humidity);
     display.setTextSize(1);
     display.setCursor(0, 0);
@@ -55,27 +44,24 @@ void drawNormalDisplay(float temp, float humidity) {
     
     display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
     
-    // Temperature
     display.setTextSize(2);
     display.setCursor(0, 16);
     display.print(temp, 1);
     display.setTextSize(1);
     display.print(F(" C"));
     
-    // Humidity
     display.setTextSize(2);
     display.setCursor(0, 40);
     display.print(humidity, 1);
     display.setTextSize(1);
     display.print(F(" %"));
     
-    // Smiley based on comfort
     display.setCursor(100, 28);
     display.setTextSize(2);
     if (temp >= 25.0 && temp <= 30.0 && humidity >= 40.0 && humidity <= HUMIDITY_NORMAL_MAX) {
-        display.print(F(":D"));  // Very happy - ideal
+        display.print(F(":D"));
     } else {
-        display.print(F(":)"));  // Happy - good
+        display.print(F(":)"));
     }
     
     display.display();
@@ -84,13 +70,11 @@ void drawNormalDisplay(float temp, float humidity) {
 void drawWarningDisplay(float temp, float humidity, bool borderOn) {
     display.clearDisplay();
     
-    // Blinking border
     if (borderOn) {
         display.drawRect(0, 0, 128, 64, SSD1306_WHITE);
         display.drawRect(1, 1, 126, 62, SSD1306_WHITE);
     }
     
-    // Warning header with specific message (e.g., "TOO HUMID", "HOT", "COLD")
     const char* warning = getDisplayWarning(temp, humidity);
     display.setTextSize(1);
     display.setCursor(10, 4);
@@ -98,7 +82,6 @@ void drawWarningDisplay(float temp, float humidity, bool borderOn) {
     display.print(warning);
     display.print(F(" !!"));
     
-    // Temperature
     display.setTextSize(2);
     display.setCursor(8, 18);
     display.print(F("T:"));
@@ -106,7 +89,6 @@ void drawWarningDisplay(float temp, float humidity, bool borderOn) {
     display.setTextSize(1);
     display.print(F("C"));
     
-    // Humidity
     display.setTextSize(2);
     display.setCursor(8, 40);
     display.print(F("H:"));
@@ -114,7 +96,6 @@ void drawWarningDisplay(float temp, float humidity, bool borderOn) {
     display.setTextSize(1);
     display.print(F("%"));
     
-    // Warning icon
     display.setTextSize(2);
     display.setCursor(105, 25);
     display.print(F("!"));
@@ -125,7 +106,6 @@ void drawWarningDisplay(float temp, float humidity, bool borderOn) {
 void drawCriticalDisplay(float temp, float humidity, int frame) {
     display.clearDisplay();
     
-    // Flashing inverted header
     if (frame % 2 == 0) {
         display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
         display.setTextColor(SSD1306_BLACK);
@@ -139,7 +119,6 @@ void drawCriticalDisplay(float temp, float humidity, int frame) {
     
     display.setTextColor(SSD1306_WHITE);
     
-    // Values
     display.setTextSize(2);
     display.setCursor(0, 24);
     display.print(temp, 1);
@@ -147,7 +126,6 @@ void drawCriticalDisplay(float temp, float humidity, int frame) {
     display.print(humidity, 0);
     display.print(F("%"));
     
-    // Action message based on condition (using centralized thresholds)
     display.setTextSize(1);
     display.setCursor(0, 48);
     if (temp > TEMP_CRITICAL) {
@@ -158,7 +136,6 @@ void drawCriticalDisplay(float temp, float humidity, int frame) {
         display.print(F("Check environment!"));
     }
     
-    // Flashing exclamation
     if (frame % 2 == 0) {
         display.setTextSize(2);
         display.setCursor(112, 24);
@@ -171,14 +148,10 @@ void drawCriticalDisplay(float temp, float humidity, int frame) {
 void drawFireAlertDisplay(int frame) {
     display.clearDisplay();
     
-    // Fire icon (simple flame shape using lines)
-    // Flame base
     display.fillTriangle(20, 50, 35, 20, 50, 50, SSD1306_WHITE);
     display.fillTriangle(25, 50, 35, 30, 45, 50, SSD1306_BLACK);
-    // Inner flame
     display.fillTriangle(30, 50, 35, 35, 40, 50, SSD1306_WHITE);
     
-    // "FIRE!!!" text
     display.setTextSize(2);
     display.setCursor(60, 8);
     display.print(F("FIRE"));
@@ -187,12 +160,10 @@ void drawFireAlertDisplay(int frame) {
     display.setCursor(60, 28);
     display.print(F("DETECTED!"));
     
-    // Warning message
     display.setTextSize(1);
     display.setCursor(0, 56);
     display.print(F("!! EVACUATE NOW !!"));
     
-    // Blinking exclamation (subtle animation)
     if (frame % 2 == 0) {
         display.setTextSize(2);
         display.setCursor(112, 8);
@@ -202,7 +173,6 @@ void drawFireAlertDisplay(int frame) {
     display.display();
 }
 
-// Send state alert to webserver
 void sendStateAlert(SystemState_t state, float temp, float humidity) {
     String jsonString = "";
     StaticJsonDocument<256> doc;
@@ -236,12 +206,12 @@ void sendStateAlert(SystemState_t state, float temp, float humidity) {
     Webserver_sendata(jsonString);
 }
 
+// FreeRTOS task: Display sensor data on OLED and evaluate system state
 void temp_humi_oled(void *pvParameters) {
     Serial.println("[OLED] Task started");
 
     dht.begin();
     
-    // Initialize OLED
     if (xI2CMutex != NULL && xSemaphoreTake(xI2CMutex, pdMS_TO_TICKS(500)) == pdTRUE) {
         if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
             Serial.println("[OLED] Init failed");
@@ -265,37 +235,30 @@ void temp_humi_oled(void *pvParameters) {
     vTaskDelay(pdMS_TO_TICKS(1500));
 
     SensorData_t sensorData = {0};
-    // NOTE: neoled_enabled is managed by web interface, not by this task
-    
-    bool sensorReady = false;  // Wait for valid readings before sending alerts
+    bool sensorReady = false;
     
     while (1) {
         float humidity = dht.readHumidity();
         float temperature = dht.readTemperature();
 
-        // Check for valid sensor readings
         bool validReading = !isnan(temperature) && !isnan(humidity) && 
                            temperature > 0 && temperature < 80 &&
                            humidity > 0 && humidity <= 100;
 
         if (!validReading) {
-            // Skip this cycle if readings are invalid
             vTaskDelay(pdMS_TO_TICKS(500));
             continue;
         }
         
-        // Mark sensor as ready after first valid reading
         if (!sensorReady) {
             sensorReady = true;
-            lastSentState = STATE_NORMAL;  // Reset state tracking
+            lastSentState = STATE_NORMAL;
             Serial.println("[OLED] Sensor ready");
         }
 
         sensorData.temperature = temperature;
         sensorData.humidity = humidity;
         
-        // Read flame_detected from queue (updated by flame sensor task)
-        // This ensures OLED task knows about fire detection immediately
         if (xSensorDataQueue != NULL) {
             SensorData_t queueData;
             if (xQueuePeek(xSensorDataQueue, &queueData, pdMS_TO_TICKS(50)) == pdTRUE) {
@@ -303,12 +266,9 @@ void temp_humi_oled(void *pvParameters) {
             }
         }
         
-        // Evaluate state with new logic (including flame detection)
-        // evaluateSystemState() prioritizes flame: if flame=true, returns STATE_FIRE_ALERT
         SystemState_t newState = evaluateSystemState(temperature, humidity, sensorData.flame_detected);
         updateSystemState(newState);
         
-        // Send alert to webserver ONLY when state actually changes and sensor is ready
         if (sensorReady && newState != lastSentState) {
             if (newState >= STATE_WARNING) {
                 sendStateAlert(newState, temperature, humidity);
@@ -318,10 +278,8 @@ void temp_humi_oled(void *pvParameters) {
             lastSentState = newState;
         }
         
-        // Send to queue for other tasks
         sendSensorData(&sensorData);
         
-        // Send sensor data to webserver
         String jsonString = "";
         StaticJsonDocument<128> doc;
         doc["type"] = "sensor"; 
@@ -333,14 +291,12 @@ void temp_humi_oled(void *pvParameters) {
             Webserver_sendata(jsonString); 
         }
 
-        // Animation update
         if (millis() - lastAnimTime >= 500) {
             animState = !animState;
             animFrame++;
             lastAnimTime = millis();
         }
 
-        // Display based on state
         if (xI2CMutex != NULL && xSemaphoreTake(xI2CMutex, pdMS_TO_TICKS(200)) == pdTRUE) {
             SystemState_t state = getSystemState();
             
@@ -363,7 +319,6 @@ void temp_humi_oled(void *pvParameters) {
             xSemaphoreGive(xI2CMutex);
         }
         
-        // Faster updates during alerts
         if (getSystemState() >= STATE_WARNING) {
             vTaskDelay(pdMS_TO_TICKS(300));
         } else {

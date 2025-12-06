@@ -5,9 +5,8 @@
 #include <Arduino.h>
 #include "LittleFS.h"
 
-// File CSV để lưu dữ liệu
 #define CSV_FILE "/sensor_data.csv"
-#define CSV_INTERVAL_MS 5000*60  // Ghi mỗi 5 phút
+#define CSV_INTERVAL_MS 5000*60
 
 void temp_humi_csv(void *pvParameters);
 

@@ -3,8 +3,8 @@
 #include <Arduino.h>
 #include "global.h"
 
-#define LED_GPIO 48  // Normal mode LED
-#define LED_ALERT_GPIO 47  // Fire alert LED
+#define LED_GPIO 48
+#define LED_ALERT_GPIO 47
 #define ENABLE_FADE_MODE
 
 

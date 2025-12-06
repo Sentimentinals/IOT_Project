@@ -1,5 +1,6 @@
 #include "task_check_info.h"
 
+// Load WiFi and CoreIOT configuration from LittleFS
 void Load_info_File()
 {
   File file = LittleFS.open("/info.dat", "r");
@@ -39,6 +40,7 @@ void Load_info_File()
   }
 }
 
+// Delete config file and restart device (factory reset)
 void Delete_info_File()
 {
   if (LittleFS.exists("/info.dat"))
@@ -48,6 +50,7 @@ void Delete_info_File()
   ESP.restart();
 }
 
+// Save WiFi and CoreIOT configuration to LittleFS
 void Save_info_File(String wifi_ssid, String wifi_pass, String core_iot_token, String core_iot_server, String core_iot_port)
 {
   DynamicJsonDocument doc(4096);
@@ -66,12 +69,12 @@ void Save_info_File(String wifi_ssid, String wifi_pass, String core_iot_token, S
   ESP.restart();
 }
 
+// Check if config file exists and load it, optionally start AP
 bool check_info_File(bool check)
 {
   static bool initialized = false;
   static bool has_wifi_creds = false;
   
-  // First call - initialize everything
   if (!check)
   {
     if (!LittleFS.begin(true))
@@ -81,39 +84,31 @@ bool check_info_File(bool check)
     }
     Serial.println("[LittleFS] Init OK");
     
-    // Load config from file
     Load_info_File();
-    
-    // Always start AP first
     startAP();
-    
-    // Check if we have WiFi credentials
     has_wifi_creds = !WIFI_SSID.isEmpty();
     initialized = true;
     
     return has_wifi_creds;
   }
   
-  // Subsequent calls - just return cached result
   return has_wifi_creds;
 }
 
+// Save WiFi credentials to config file
 void Save_wifi_File(String wifi_ssid, String wifi_pass)
 {
   DynamicJsonDocument doc(4096);
   
-  // Read existing config first
   File file = LittleFS.open("/info.dat", "r");
   if (file) {
     deserializeJson(doc, file);
     file.close();
   }
   
-  // Update WiFi fields
   doc["WIFI_SSID"] = wifi_ssid;
   doc["WIFI_PASS"] = wifi_pass;
   
-  // Save back
   File configFile = LittleFS.open("/info.dat", "w");
   if (configFile) {
     serializeJson(doc, configFile);
@@ -125,23 +120,21 @@ void Save_wifi_File(String wifi_ssid, String wifi_pass)
   ESP.restart();
 }
 
+// Save CoreIOT configuration to config file
 void Save_coreiot_File(String core_iot_token, String core_iot_server, String core_iot_port)
 {
   DynamicJsonDocument doc(4096);
   
-  // Read existing config first
   File file = LittleFS.open("/info.dat", "r");
   if (file) {
     deserializeJson(doc, file);
     file.close();
   }
   
-  // Update CoreIOT fields
   doc["CORE_IOT_TOKEN"] = core_iot_token;
   doc["CORE_IOT_SERVER"] = core_iot_server;
   doc["CORE_IOT_PORT"] = core_iot_port.toInt();
   
-  // Save back
   File configFile = LittleFS.open("/info.dat", "w");
   if (configFile) {
     serializeJson(doc, configFile);
