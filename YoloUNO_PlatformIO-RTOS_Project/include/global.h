@@ -25,6 +25,21 @@ typedef enum {
     STATE_FIRE_ALERT       // Phát hiện cháy - ưu tiên cao nhất
 } SystemState_t;
 
+// ==================== CENTRALIZED THRESHOLDS ====================
+// Temperature thresholds (Celsius)
+#define TEMP_COLD           15.0f   // Below this = Cold
+#define TEMP_NORMAL_MIN     15.0f   // Comfortable range start (Matches Report Normal 15-33)
+#define TEMP_NORMAL_MAX     30.0f   // Comfortable range end
+#define TEMP_HOT            33.0f   // Above this = Hot (Warning)
+#define TEMP_CRITICAL       40.0f   // Above this = Critical
+
+// Humidity thresholds (%)
+#define HUMIDITY_CRITICAL_LOW   30.0f   // Below this = Too Dry (Critical)
+#define HUMIDITY_WARNING_LOW    40.0f   // Below this = Dry (Warning)
+#define HUMIDITY_NORMAL_MIN     50.0f   // Comfortable range start
+#define HUMIDITY_NORMAL_MAX     70.0f   // Comfortable range end (Ideal)
+#define HUMIDITY_WARNING_HIGH   80.0f   // Above this = Too Humid (Warning)
+
 // ==================== WIFI & COREIOT CONFIG ====================
 extern String WIFI_SSID;
 extern String WIFI_PASS;
@@ -48,6 +63,9 @@ extern SemaphoreHandle_t xI2CMutex;
 
 // Mutex cho Queue access (CRITICAL - prevents race conditions)
 extern SemaphoreHandle_t xQueueMutex;
+
+// Mutex cho Serial output (prevents interleaving)
+extern SemaphoreHandle_t xSerialMutex;
 
 // Binary Semaphores cho System States
 extern SemaphoreHandle_t xSemaphoreNormal;

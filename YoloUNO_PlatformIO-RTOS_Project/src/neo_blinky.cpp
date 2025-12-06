@@ -1,13 +1,13 @@
 #include "neo_blinky.h"
 
 /**
- * NEOPIXEL LED - HUMIDITY COLOR MAPPING:
+ * NEOPIXEL LED - HUMIDITY COLOR MAPPING (using centralized thresholds):
  * 
- * < 30%  : RED       - Too Dry (CRITICAL)
- * 30-40% : ORANGE    - Dry (WARNING)
- * 40-60% : GREEN     - Ideal (NORMAL)
- * 60-70% : CYAN      - Acceptable (NORMAL)
- * > 70%  : PURPLE    - Too Humid (WARNING - mold risk)
+ * < HUMIDITY_CRITICAL_LOW (30%) : RED       - Too Dry (CRITICAL)
+ * < HUMIDITY_WARNING_LOW (40%)  : ORANGE    - Dry (WARNING)
+ * <= HUMIDITY_NORMAL_MAX (70%)  : GREEN     - Ideal (NORMAL)
+ * <= HUMIDITY_WARNING_HIGH (80%): CYAN      - Acceptable (NORMAL)
+ * > HUMIDITY_WARNING_HIGH       : PURPLE    - Too Humid (WARNING)
  * 
  * BEHAVIOR:
  * - FIRE: Solid BRIGHT RED (max brightness)
@@ -16,16 +16,16 @@
  */
 
 uint32_t getColorByHumidity(Adafruit_NeoPixel &strip, float humidity) {
-    if (humidity < 30.0) {
+    if (humidity < HUMIDITY_CRITICAL_LOW) {
         return strip.Color(255, 0, 0);      // Red - Too Dry (Critical)
     } 
-    else if (humidity < 40.0) {
+    else if (humidity < HUMIDITY_WARNING_LOW) {
         return strip.Color(255, 100, 0);    // Orange - Dry (Warning)
     } 
-    else if (humidity <= 60.0) {
+    else if (humidity <= HUMIDITY_NORMAL_MAX) {
         return strip.Color(0, 255, 0);      // Green - Ideal (Normal)
     } 
-    else if (humidity <= 70.0) {
+    else if (humidity <= HUMIDITY_WARNING_HIGH) {
         return strip.Color(0, 200, 255);    // Cyan - Acceptable (Normal)
     } 
     else {

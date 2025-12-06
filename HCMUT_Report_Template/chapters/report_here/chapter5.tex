@@ -151,3 +151,39 @@ Building upon the initial setup described in Chapter 1, we enhanced the cloud in
 \end{itemize}
 
 This dual-interface approach—local Web Server for low-latency control and CoreIOT Cloud for historical analysis—provides a comprehensive user experience that combines the best aspects of edge and cloud computing.
+
+\section{Data Logging and CSV Export}
+
+To facilitate offline analysis and historical data tracking, we implemented a local data logging feature. The system periodically records sensor metrics and system states to a CSV (Comma-Separated Values) file stored in the ESP32's flash memory using the LittleFS file system.
+
+\subsection{CSV File Structure}
+
+The log file is named \texttt{data.csv} and contains the following columns:
+\begin{itemize}
+    \item \textbf{datetime:} Human-readable timestamp (YYYY-MM-DD HH:MM:SS)
+    \item \textbf{timestamp:} Unix timestamp for machine processing
+    \item \textbf{temperature, humidity:} Environmental readings
+    \item \textbf{light\_level, moisture\_level:} Analog sensor values
+    \item \textbf{flame\_detected, water\_pump:} Boolean status flags (0/1)
+    \item \textbf{system\_state:} Textual representation of the system's operating mode
+\end{itemize}
+
+\subsection{System State Classification}
+
+The \texttt{system\_state} column provides a high-level summary of the device's condition at the time of logging. This value is derived from the \texttt{SystemState\_t} enum and is exported as a string to ensure readability. Table~\ref{tab:csv_states} lists the possible values and their corresponding conditions.
+
+\begin{table}[H]
+\centering
+\caption{System State values in the exported CSV file.}
+\label{tab:csv_states}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{CSV Value} & \textbf{Enum Value} & \textbf{Condition} \\ \hline
+Normal & STATE\_NORMAL (0) & Temperature 15--33\textdegree C, Humidity 50--70\% \\ \hline
+Warning & STATE\_WARNING (1) & Temperature 33--40\textdegree C or Humidity out of ideal range \\ \hline
+Critical & STATE\_CRITICAL (2) & Temperature $>$ 40\textdegree C or Humidity $<$ 30\% \\ \hline
+Fire & STATE\_FIRE\_ALERT (3) & Flame sensor detected fire source \\ \hline
+\end{tabular}
+\end{table}
+
+Users can download this file directly from the web interface for analysis in spreadsheet software like Microsoft Excel or Google Sheets.

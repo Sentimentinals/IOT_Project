@@ -1,19 +1,38 @@
-\chapter{Core IOT Platform and Dashboard Design}
+\chapter{Hardware and Platform Overview}
 
-This chapter documents the process of setting up the Core IOT platform for our IoT project. We cover account creation, device registration, and dashboard configuration.
+This chapter provides an overview of the hardware and cloud platform used in our project. We introduce the Yolo Uno development board and the Core IOT platform, outlining the setup process and dashboard design. Detailed firmware implementation and code explanations are reserved for Chapter 7.
 
-\section{Create Core IOT Account}
+\section{Introduction to Yolo Uno}
+
+The Yolo Uno is a versatile development board designed for IoT applications, featuring the powerful ESP32 microcontroller. It integrates essential components such as Wi-Fi, Bluetooth, and various onboard sensors/actuators, making it an ideal choice for rapid prototyping.
+
+Key features of the Yolo Uno include:
+\begin{itemize}
+    \item \textbf{ESP32-WROOM-32E}: Dual-core processor with Wi-Fi and Bluetooth connectivity.
+    \item \textbf{Onboard Peripherals}: Includes NeoPixel LEDs, buttons, and Grove connectors for easy sensor expansion.
+    \item \textbf{USB-C Interface}: For programming and power.
+    \item \textbf{Compact Form Factor}: Suitable for embedded projects.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{assets/yolouno.png}
+    \caption{The Yolo Uno development board.}
+    \label{fig:yolouno}
+\end{figure}
+
+\section{Core IOT Platform Setup}
 
 Core IOT is a cloud-based IoT platform built on the ThingsBoard framework. We selected this platform for our project due to its open-source nature and comprehensive feature set for device management and data visualization.
 
 \subsection{Registration Process}
 
-We accessed the Core IOT platform at \url{https://coreiot.io} and clicked the ``Start Now'' button to begin registration (Figure~\ref{fig:coreiot_homepage}).
+We accessed the Core IOT platform at \url{https://coreiot.io} and clicked the "Start Now" button to begin registration (Figure~\ref{fig:coreiot_homepage}).
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{assets/Coreiot.png}
-    \caption{Core IOT homepage with the ``Start Now'' button for registration.}
+    \caption{Core IOT homepage with the "Start Now" button for registration.}
     \label{fig:coreiot_homepage}
 \end{figure}
 
@@ -37,113 +56,20 @@ After successful authentication, we were assigned the Tenant Administrator role,
 
 \subsection{Device Provisioning}
 
-With the account ready, we proceeded to register our ESP32-based device on the platform. In the ``Devices'' section, we created a new device and obtained an access token. This token is required for the device to authenticate when sending telemetry data via MQTT.
-
-In our firmware, we defined global variables to store the connection credentials. These values are loaded from non-volatile storage during boot, allowing users to configure them through our web interface without modifying the source code:
-
-\begin{lstlisting}[language=C++, caption={Global configuration variables for Core IOT connection (global.h)}]
-// WiFi & CoreIOT Configuration
-extern String WIFI_SSID;
-extern String WIFI_PASS;
-extern String CORE_IOT_TOKEN;
-extern String CORE_IOT_SERVER;
-extern int CORE_IOT_PORT;
-\end{lstlisting}
-
-The connection to the Core IOT server is established using the ThingsBoard Arduino SDK. We initialize the MQTT client and ThingsBoard object as follows:
-
-\begin{lstlisting}[language=C++, caption={MQTT client initialization (task\_core\_iot.cpp)}]
-constexpr uint32_t MAX_MESSAGE_SIZE = 1024U;
-
-WiFiClient wifiClient;
-Arduino_MQTT_Client mqttClient(wifiClient);
-ThingsBoard tb(mqttClient, MAX_MESSAGE_SIZE);
-\end{lstlisting}
-
-The reconnection logic handles authentication and subscription setup. When the device connects successfully, it sends its MAC address as an attribute and subscribes to RPC callbacks:
-
-\begin{lstlisting}[language=C++, caption={Core IOT reconnection and subscription logic}]
-void CORE_IOT_reconnect() {
-    if (CORE_IOT_TOKEN.isEmpty() || CORE_IOT_SERVER.isEmpty())
-        return;
-    
-    if (!tb.connected()) {
-        if (!tb.connect(CORE_IOT_SERVER.c_str(), 
-                        CORE_IOT_TOKEN.c_str(), 
-                        CORE_IOT_PORT))
-            return;
-        
-        Serial.println("[CoreIOT] Connected");
-        tb.sendAttributeData("macAddress", WiFi.macAddress().c_str());
-        tb.RPC_Subscribe(callbacks.cbegin(), callbacks.cend());
-        tb.sendAttributeData("localIp", WiFi.localIP().toString().c_str());
-    } else {
-        tb.loop();
-    }
-}
-\end{lstlisting}
+With the account ready, we proceeded to register our ESP32-based device on the platform. In the "Devices" section, we created a new device and obtained an access token. This token is required for the device to authenticate when sending telemetry data via MQTT.
 
 To verify the connection and data transmission capabilities, we utilized a Python script to simulate the IoT device behavior before deploying it to the actual hardware. It is critical to note that we specifically selected the \texttt{paho-mqtt} library version 1.6.1 for this implementation, as newer versions (e.g., 2.0) introduce breaking changes in the authentication handling that are incompatible with our current configuration.
 
 \section{Telemetry Data Transmission}
 
-After configuring the device credentials, we developed a firmware routine to format sensor data into a JSON structure compliant with the Core IOT platform's requirements. We defined a struct to hold all sensor values in a thread-safe manner:
+After configuring the device credentials, we developed a firmware routine to format sensor data into a JSON structure compliant with the Core IOT platform's requirements. The main task runs in a FreeRTOS task, waiting for WiFi connectivity before attempting to connect to Core IOT. It then enters a loop that publishes telemetry data every 10 seconds.
 
-\begin{lstlisting}[language=C++, caption={Sensor data structure for telemetry (global.h)}]
-typedef struct {
-    float temperature;
-    float humidity;
-    float light_level;
-    float moisture_level;
-    bool flame_detected;
-    bool fan_enabled;
-    bool neoled_enabled;
-    bool water_pump_enabled;
-} SensorData_t;
-\end{lstlisting}
-
-The main task runs in a FreeRTOS task, waiting for WiFi connectivity before attempting to connect to Core IOT. It then enters a loop that publishes telemetry data every 10 seconds:
-
-\begin{lstlisting}[language=C++, caption={Telemetry publishing routine in the main task loop}]
-void CORE_IOT_task(void *pvParameters) {
-    // Wait for WiFi connection
-    while (1) {
-        if (xSemaphoreTake(xBinarySemaphoreInternet, portMAX_DELAY)) {
-            Serial.println("[CoreIOT] WiFi ready");
-            break;
-        }
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-    }
-
-    unsigned long lastPublish = 0;
-    const unsigned long PUBLISH_INTERVAL = 10000;
-    SensorData_t sensorData = {0};
-
-    while (1) {
-        CORE_IOT_reconnect();
-        
-        if (millis() - lastPublish >= PUBLISH_INTERVAL) {
-            lastPublish = millis();
-            getSensorData(&sensorData);  // Thread-safe read
-            
-            if (tb.connected()) {
-                tb.sendTelemetryData("temperature", sensorData.temperature);
-                tb.sendTelemetryData("humidity", sensorData.humidity);
-                tb.sendTelemetryData("light", sensorData.light_level);
-                tb.sendTelemetryData("moisture", sensorData.moisture_level);
-            }
-        }
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-    }
-}
-\end{lstlisting}
-
-We verified the data ingestion by navigating to the ``Latest Telemetry'' tab within the device details page on the Core IOT portal. This interface allows us to confirm that the JSON payload is being parsed correctly and that values for temperature and humidity are updating dynamically as sent by the device.
+We verified the data ingestion by navigating to the "Latest Telemetry" tab within the device details page on the Core IOT portal. This interface allows us to confirm that the JSON payload is being parsed correctly and that values for temperature and humidity are updating dynamically as sent by the device.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{assets/lastest_telemetry.png}
-    \caption{The ``Latest Telemetry'' tab displaying real-time data received from the device.}
+    \caption{The "Latest Telemetry" tab displaying real-time data received from the device.}
     \label{fig:latest_telemetry}
 \end{figure}
 
@@ -185,34 +111,6 @@ Below the time-series chart, we positioned a second chart dedicated to soil mois
 
 Adjacent to the charts, we implemented a large numeric display widget showing the current light level in lux. This widget is configured with the \texttt{light} telemetry key and formatted to display values with scientific notation (e.g., 65000 m², though the unit should technically be lux). The large font size makes this value readable at a glance, which is particularly useful for automated greenhouse or indoor farming applications where lighting optimization is critical.
 
-\subsection{Alarm Management System}
-
-We integrated a comprehensive alarm table widget in the lower section of the dashboard to track environmental anomalies and system events. The alarm system operates through rule chains configured in the ThingsBoard Rule Engine, which continuously evaluate incoming telemetry against predefined threshold conditions.
-
-The alarm table displays several critical columns:
-
-\begin{itemize}
-    \item \textbf{Created time:} Timestamp when the alarm was triggered, enabling chronological incident analysis
-    \item \textbf{Originator:} The entity that generated the alarm (typically \textit{Assignment} for our configured rule chain)
-    \item \textbf{Type:} Classification of the alarm event (e.g., \textit{Environment Warning})
-    \item \textbf{Severity:} Criticality level (Warning, Critical, or Fire Alert)
-    \item \textbf{Status:} Current state of the alarm (Active, Acknowledged, Cleared, Unacknowledged)
-    \item \textbf{Assignee:} User or group responsible for incident response
-\end{itemize}
-
-In our current deployment, the alarm table shows multiple \textit{Environment Warning} entries triggered on December 3, 2025. These alarms are generated when temperature exceeds 30\textdegree C, drops below 20\textdegree C, or when humidity falls outside the 40--70\% comfort range. The severity levels are color-coded: green for acknowledged alarms, yellow for warnings, and red for critical events.
-
-We configured the alarm rules using ThingsBoard's Rule Chain editor, which provides a visual programming interface for defining conditional logic. For example, the temperature threshold rule consists of a filter node that evaluates \texttt{temperature > 30}, connected to an action node that creates an alarm entity with severity \textit{Warning} and type \textit{Environment Warning}. The rule chain also sends WebSocket notifications to the dashboard, triggering real-time alert pop-ups.
-
-The alarm table supports interactive management features. Operators can click individual alarms to view detailed information, acknowledge events to indicate they are being addressed, or assign alarms to specific team members for resolution. This functionality is particularly valuable in multi-user deployments where incident response requires coordination among maintenance personnel.
-
-\subsection{Geographical Fleet Tracking}
-
-At the bottom of the dashboard, we incorporated an Open Street Map widget to provide spatial context for device deployments. While our current system operates with a single device, the map widget demonstrates scalability for distributed sensor networks across multiple locations.
-
-The map configuration requires telemetry data to include \texttt{latitude} and \texttt{longitude} fields. These coordinates can be hardcoded in the firmware for fixed installations or dynamically obtained from GPS modules for mobile deployments. Each device appears as a marker on the map, and clicking a marker displays a tooltip containing key telemetry values such as current temperature, humidity, and device status.
-
-We customized the map widget's datasource settings to ensure proper data key mapping when multiple devices are present. By default, ThingsBoard appends numeric suffixes to duplicate data keys (e.g., \texttt{latitude\_1}, \texttt{latitude\_2}), but we configured explicit aliases to maintain consistent key names across all devices. This prevents widget configuration errors that would occur if the dashboard expected \texttt{latitude} but received \texttt{latitude\_1}.
 
 \subsection{Widget Configuration Best Practices}
 
@@ -235,5 +133,4 @@ Throughout the dashboard design process, we identified several critical configur
 
 \section{Summary}
 
-In this chapter, we successfully set up the Core IOT platform for our project. We created a Tenant Administrator account, registered our ESP32 device, and established MQTT communication for telemetry data transmission. The firmware implementation includes connection handling with automatic reconnection, periodic telemetry publishing using FreeRTOS tasks, and bidirectional RPC communication for remote device control. The dashboard was configured with multiple widget types including Digital Gauges for real-time sensor readings, Charts for historical trends, RPC Switches for remote device control, and an Open Street Map for geographical visualization. These components form the foundation for the monitoring and control system that will be expanded in subsequent chapters.
-
+In this chapter, we introduced the Yolo Uno hardware and the Core IOT cloud platform. We outlined the initial setup, including account registration, device provisioning, and the conceptual design of the monitoring dashboard. The specific software implementation, including MQTT communication and FreeRTOS tasks, will be detailed in Chapter 7.

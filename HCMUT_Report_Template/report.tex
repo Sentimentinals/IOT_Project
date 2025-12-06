@@ -21,7 +21,7 @@
 
 % Code listings
 \usepackage{listings}
-\usepackage{xcolor}
+\usepackage[table]{xcolor}
 
 % Code style configuration
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -54,7 +54,10 @@
 \lstset{style=mystyle}
 
 % TikZ for diagrams
+\usepackage{tikz}
 \usetikzlibrary{shapes,arrows,positioning}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 
 % Allow setting >max< width of figure
 % Remove if unneeded
@@ -72,27 +75,30 @@
 \newcommand*\mean[1]{\bar{#1}}
 
 \ocoursename{Internet of Things Application Development}
-\oreporttype{Final Project Report}
-\title{Smart Environmental Monitoring System with TinyML Integration}
-\oadvisor{Dr. Le Trong Nhan}
+\oreporttype{Assignment Report}
+\title{Smart Environmental Monitoring System}
+\oadvisor{Le Trong Nhan}
+\oDr{Dr. }
 \reportlayout%
 
 \begin{document}
 
 \coverpage%
 
+\vspace*{\fill}
 \section*{Member List \& Workload}
 \begin{center}
-  \begin{tabular}{clcc}
+  \begin{tabular*}{\textwidth}{c @{\extracolsep{\fill}} l c c}
     \toprule
-    \textbf{No.} & \textbf{Full Name} & \textbf{Student ID} & \textbf{Contribution} \\
+    \textbf{No.} & \textbf{Full Name} & \textbf{Student ID} & \textbf{Details} \\
     \midrule
-    1 & Trần Minh Hiếu   & 2252225 & 100\% \\
-    2 & Nguyễn Đức Tài   & 2252225 & 100\% \\
-    3 & Nguyễn Thủy Tiên & 2252806 & 100\% \\
+    1 & Trần Minh Hiếu   & 2252106 & Task 5 ML, Task 6 \\
+    2 & Nguyễn Đức Tài   & 2252723 & Board Task 1, 2, 3, 4 \\
+    3 & Nguyễn Thủy Tiên & 2252806 & Task 5 Hand Gesture, Task 6 \\
     \bottomrule
-  \end{tabular}
+  \end{tabular*}
 \end{center}
+\vspace*{\fill}
 
 \newpage
 \tableofcontents
@@ -101,20 +107,35 @@
 % ==================== INTRODUCTION AND OBJECTIVES ====================
 \include{chapters/report_here/intro_and_obj}
 
-% ==================== CHAPTER 1: Core IOT Platform ====================
+% ==================== CHAPTER 1: Hardware Implementation and Data Transmission ====================
 \include{chapters/report_here/chapter1}
 
-% ==================== CHAPTER 2: Hardware & Firmware ====================
+% ==================== CHAPTER 2: Task 1 - Single LED Blink with Temperature Conditions ====================
 \include{chapters/report_here/chapter2}
 
-% ==================== CHAPTER 3: FreeRTOS Tasks ====================
+% ==================== CHAPTER 3: Task 2 - NeoPixel LED Control Based on Humidity ====================
 \include{chapters/report_here/chapter3}
 
-% ==================== CHAPTER 4: System Integration & Testing ====================
-% \include{chapters/report_here/chapter4}
+% ==================== CHAPTER 4: Task 3 - Temperature and Humidity Monitoring with LCD Display ====================
+\include{chapters/report_here/chapter4}
 
-% ==================== CHAPTER 5: Web Server & Cloud ====================
+% ==================== CHAPTER 5: Task 4 - Web Server in Access Point Mode ====================
 \include{chapters/report_here/chapter5}
+
+% ==================== CHAPTER 6: Task 5 - TinyML Deployment & Accuracy Evaluation ====================
+\include{chapters/report_here/chapter6}
+
+% ==================== CHAPTER 7: Task 6 - Data Publishing to CoreIOT Cloud Server ====================
+\include{chapters/report_here/chapter7}
+
+% ==================== CHAPTER 8: Implementation Hightlight ====================
+\include{chapters/report_here/chapter8}
+
+% ==================== CHAPTER 9: Dicussion and Future Developement ====================
+\include{chapters/report_here/chapter9.tex}
+
+% ==================== Conclusion ====================
+\include{chapters/report_here/conclusion}
 
 \bibliographystyle{plain}
 \bibliography{refs}

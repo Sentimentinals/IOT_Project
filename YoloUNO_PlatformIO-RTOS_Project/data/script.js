@@ -26,33 +26,41 @@ function updateThemeIcon() {
 }
 
 // ==================== ENVIRONMENT STATUS ====================
+// Temperature status matches LED blinky logic (led_blinky.cpp)
+// Humidity status matches NeoPixel logic (neo_blinky.cpp)
 function getEnvironmentStatus(temp, humidity) {
     let tempStatus = { text: 'Loading...', class: '' };
     let humStatus = { text: 'Loading...', class: '' };
 
-    // Temperature status - MATCHES LED LOGIC from neo_blinky.cpp
+    // Temperature status - MATCHES LED BLINKY LOGIC (led_blinky.cpp)
+    // LED blinky shows temperature: < 15°C = Cold, 15-33°C = Normal, 33-40°C = Hot, >= 40°C = Critical
     if (temp !== undefined && temp !== '--') {
-        if (temp >= 50) {
-            tempStatus = { text: 'Very Hot!', class: 'status-alert' };
-        } else if (temp >= 40) {
-            tempStatus = { text: 'Hot', class: 'status-alert' };
-        } else if (temp >= 25) {
-            tempStatus = { text: 'Comfortable', class: 'status-comfortable' }; // LED = Green
-        } else if (temp >= 15) {
-            tempStatus = { text: 'Cool', class: 'status-warning' }; // LED = Cyan
+        const tempValue = parseFloat(temp);
+        if (tempValue >= 40.0) {
+            tempStatus = { text: 'Critical', class: 'status-alert' }; // LED: Very fast blink
+        } else if (tempValue >= 33.0) {
+            tempStatus = { text: 'Hot', class: 'status-alert' }; // LED: Fast blink
+        } else if (tempValue >= 15.0) {
+            tempStatus = { text: 'Normal', class: 'status-comfortable' }; // LED: Normal blink
         } else {
-            tempStatus = { text: 'Too Cold', class: 'status-alert' }; // LED = Blue
+            tempStatus = { text: 'Cold', class: 'status-warning' }; // LED: Slow blink
         }
     }
 
-    // Humidity status
+    // Humidity status - MATCHES NEOPIXEL LOGIC (neo_blinky.cpp)
+    // NeoPixel shows humidity: < 30% = Too Dry (Red), < 40% = Dry (Orange), <= 60% = Ideal (Green), <= 80% = Acceptable (Cyan), > 80% = Too Humid (Purple)
     if (humidity !== undefined && humidity !== '--') {
-        if (humidity > 70) {
-            humStatus = { text: 'Too Humid', class: 'status-warning' };
-        } else if (humidity >= 40) {
-            humStatus = { text: 'Optimal', class: 'status-comfortable' };
+        const humValue = parseFloat(humidity);
+        if (humValue < 30.0) {
+            humStatus = { text: 'Too Dry', class: 'status-alert' }; // NeoPixel: Red (Critical)
+        } else if (humValue < 40.0) {
+            humStatus = { text: 'Dry', class: 'status-warning' }; // NeoPixel: Orange (Warning)
+        } else if (humValue <= 60.0) {
+            humStatus = { text: 'Ideal', class: 'status-comfortable' }; // NeoPixel: Green (Normal)
+        } else if (humValue <= 80.0) {
+            humStatus = { text: 'Acceptable', class: 'status-comfortable' }; // NeoPixel: Cyan (Normal)
         } else {
-            humStatus = { text: 'Dry', class: 'status-warning' };
+            humStatus = { text: 'Too Humid', class: 'status-warning' }; // NeoPixel: Purple (Warning)
         }
     }
 

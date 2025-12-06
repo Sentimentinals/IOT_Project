@@ -1,60 +1,27 @@
 \relax 
 \providecommand\zref@newlabel[2]{}
 \providecommand\hyper@newdestlabel[2]{}
-\@writefile{toc}{\contentsline {chapter}{\numberline {3}FreeRTOS Task Synchronization and Visual Feedback}{40}{chapter.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {chapter}{\numberline {3}Task 2 - NeoPixel LED Control Based on Humidity}{28}{chapter.3}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
 \@writefile{loa}{\addvspace {10\p@ }}
-\@writefile{toc}{\contentsline {section}{\numberline {3.1}Theoretical Background: Real-Time Synchronization}{40}{section.3.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1.1}Binary Semaphores for Signaling}{40}{subsection.3.1.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1.2}Mutexes for Resource Protection}{41}{subsection.3.1.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1.3}Message Queues for Inter-Task Communication}{41}{subsection.3.1.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3.2}Task Layout Overview}{41}{section.3.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {3.1}{\ignorespaces Task synchronization architecture showing producer-consumer pattern with queue and semaphore-based communication.}}{42}{figure.caption.11}\protected@file@percent }
-\newlabel{fig:task_architecture}{{3.1}{42}{Task synchronization architecture showing producer-consumer pattern with queue and semaphore-based communication}{figure.caption.11}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2.1}Sensors and Actuators Used}{42}{subsection.3.2.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {3.1}{\ignorespaces Overview of sensors and actuators used in the visual feedback tasks.}}{43}{table.caption.12}\protected@file@percent }
-\newlabel{tab:sensor_actuator_overview}{{3.1}{43}{Overview of sensors and actuators used in the visual feedback tasks}{table.caption.12}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {3.3}LED Blink Control}{44}{section.3.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3.1}LED Behavior Summary}{44}{subsection.3.3.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {3.2}{\ignorespaces LED blinking behaviors mapped to system states and temperature conditions.}}{44}{table.caption.13}\protected@file@percent }
-\newlabel{tab:led_behaviors}{{3.2}{44}{LED blinking behaviors mapped to system states and temperature conditions}{table.caption.13}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3.2}{\ignorespaces Dual-LED indicator system showing normal LED (GPIO 48) and alert LED (GPIO 47) mounted on the YOLO Uno board.}}{44}{figure.caption.14}\protected@file@percent }
-\newlabel{fig:led_indicator}{{3.2}{44}{Dual-LED indicator system showing normal LED (GPIO 48) and alert LED (GPIO 47) mounted on the YOLO Uno board}{figure.caption.14}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3.2}Semaphore-Based State Handling}{45}{subsection.3.3.2}\protected@file@percent }
-\newlabel{fig:led_state_machine}{{3.3.2}{45}{Semaphore-Based State Handling}{figure.caption.15}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3.3}LED Task Loop}{45}{subsection.3.3.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3.4}Humidity NeoPixel Control}{46}{section.3.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4.1}Humidity-to-Color Map}{46}{subsection.3.4.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {3.3}{\ignorespaces NeoPixel color mapping for different humidity ranges with RGB values.}}{46}{table.caption.16}\protected@file@percent }
-\newlabel{tab:humidity_colors}{{3.3}{46}{NeoPixel color mapping for different humidity ranges with RGB values}{table.caption.16}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4.2}State-Based Effects}{46}{subsection.3.4.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {3.3}{\ignorespaces NeoPixel control flow showing decision logic based on LED enable status and system state.}}{47}{figure.caption.17}\protected@file@percent }
-\newlabel{fig:neopixel_flow}{{3.3}{47}{NeoPixel control flow showing decision logic based on LED enable status and system state}{figure.caption.17}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4.3}NeoPixel Task Loop}{48}{subsection.3.4.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3.5}OLED Status Display}{49}{section.3.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.5.1}OLED Layout Modes}{49}{subsection.3.5.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {3.4}{\ignorespaces OLED display states with corresponding visual elements and trigger conditions.}}{50}{table.caption.18}\protected@file@percent }
-\newlabel{tab:oled_states}{{3.4}{50}{OLED display states with corresponding visual elements and trigger conditions}{table.caption.18}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3.4}{\ignorespaces OLED screen on the YOLO Uno board showing temperature and humidity with different layouts for each state.}}{51}{figure.caption.19}\protected@file@percent }
-\newlabel{fig:oled_display_real}{{3.4}{51}{OLED screen on the YOLO Uno board showing temperature and humidity with different layouts for each state}{figure.caption.19}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.5.2}State Selection Flow}{51}{subsection.3.5.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {3.5}{\ignorespaces OLED rendering pipeline showing state-based function selection and I2C mutex protection.}}{52}{figure.caption.20}\protected@file@percent }
-\newlabel{fig:oled_rendering}{{3.5}{52}{OLED rendering pipeline showing state-based function selection and I2C mutex protection}{figure.caption.20}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.5.3}Queue and Semaphore Data Flow}{53}{subsection.3.5.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3.6}Light Intensity Processing}{55}{section.3.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.6.1}Signal Conditioning and Conversion}{55}{subsection.3.6.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.6.2}Implementation Logic}{56}{subsection.3.6.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3.7}Soil Moisture and Automated Irrigation}{56}{section.3.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.7.1}Hybrid Producer-Consumer Architecture}{56}{subsection.3.7.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.7.2}Control Logic with Safety Timeout}{57}{subsection.3.7.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3.8}Critical Safety Monitoring (Flame Detection)}{58}{section.3.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.8.1}High-Priority Event Detection}{58}{subsection.3.8.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.8.2}Debouncing Algorithm}{58}{subsection.3.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3.1}Humidity-to-Color Map}{29}{section.3.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3.1}{\ignorespaces NeoPixel color mapping for different humidity ranges with RGB values.}}{29}{table.caption.15}\protected@file@percent }
+\newlabel{tab:humidity_colors}{{3.1}{29}{NeoPixel color mapping for different humidity ranges with RGB values}{table.caption.15}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.2}State-Based Effects}{29}{section.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3.3}Semaphore Mechanism and Priority}{29}{section.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3.1}Signaling Mechanism}{29}{subsection.3.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3.2}Priority Hierarchy}{30}{subsection.3.3.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3.1}{\ignorespaces NeoPixel control flow showing decision logic based on LED enable status and system state.}}{31}{figure.caption.16}\protected@file@percent }
+\newlabel{fig:neopixel_flow}{{3.1}{31}{NeoPixel control flow showing decision logic based on LED enable status and system state}{figure.caption.16}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.4}NeoPixel Task Loop}{31}{section.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3.5}NeoPixel Color Mapping}{33}{section.3.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3.2}{\ignorespaces NeoPixel visual feedback summary showing color and motion for each condition.}}{33}{table.caption.17}\protected@file@percent }
+\newlabel{tab:neopixel_visual}{{3.2}{33}{NeoPixel visual feedback summary showing color and motion for each condition}{table.caption.17}{}}
 \@setckpt{chapters/report_here/chapter3}{
-\setcounter{page}{60}
+\setcounter{page}{34}
 \setcounter{equation}{0}
-\setcounter{enumi}{3}
+\setcounter{enumi}{4}
 \setcounter{enumii}{0}
 \setcounter{enumiii}{0}
 \setcounter{enumiv}{0}
@@ -62,18 +29,18 @@
 \setcounter{mpfootnote}{0}
 \setcounter{part}{0}
 \setcounter{chapter}{3}
-\setcounter{section}{8}
-\setcounter{subsection}{2}
+\setcounter{section}{5}
+\setcounter{subsection}{0}
 \setcounter{subsubsection}{0}
 \setcounter{paragraph}{0}
 \setcounter{subparagraph}{0}
-\setcounter{figure}{5}
-\setcounter{table}{4}
+\setcounter{figure}{1}
+\setcounter{table}{2}
 \setcounter{lastpagecount}{0}
 \setcounter{section@level}{0}
-\setcounter{Item}{11}
+\setcounter{Item}{8}
 \setcounter{Hfootnote}{0}
-\setcounter{bookmark@seq@number}{62}
+\setcounter{bookmark@seq@number}{29}
 \setcounter{mdf@globalstyle@cnt}{1}
 \setcounter{mdfcountframes}{0}
 \setcounter{mdf@env@i}{0}
@@ -81,7 +48,7 @@
 \setcounter{mdf@zref@counter}{0}
 \setcounter{FancyVerbLine}{0}
 \setcounter{linenumber}{1}
-\setcounter{LN@truepage}{59}
+\setcounter{LN@truepage}{33}
 \setcounter{FancyVerbWriteLine}{0}
 \setcounter{FancyVerbBufferLine}{0}
 \setcounter{FV@TrueTabGroupLevel}{0}
@@ -100,7 +67,7 @@
 \setcounter{parentequation}{0}
 \setcounter{caption@flags}{2}
 \setcounter{continuedfloat}{0}
-\setcounter{lstnumber}{37}
+\setcounter{lstnumber}{1}
 \setcounter{blindtext}{1}
 \setcounter{Blindtext}{5}
 \setcounter{blind@countparstart}{0}

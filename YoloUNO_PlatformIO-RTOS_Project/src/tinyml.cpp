@@ -95,9 +95,13 @@ void tiny_ml_task(void* pvParameters)
 
         float y = output->data.f[0];
 
-        Serial.printf("[TinyML] Input: T=%.1f H=%.1f L=%.1f M=%.1f => Output=%.3f\n",
-                      sensorData.temperature, sensorData.humidity,
-                      sensorData.light_level, sensorData.moisture_level, y);
+        // Thread-safe Serial output (prevents interleaving with WiFi task)
+        if (xSerialMutex != NULL && xSemaphoreTake(xSerialMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            Serial.printf("[TinyML] Input: T=%.1f H=%.1f L=%.1f M=%.1f => Output=%.3f\n",
+                          sensorData.temperature, sensorData.humidity,
+                          sensorData.light_level, sensorData.moisture_level, y);
+            xSemaphoreGive(xSerialMutex);
+        }
 
         vTaskDelay(pdMS_TO_TICKS(5000));
     }

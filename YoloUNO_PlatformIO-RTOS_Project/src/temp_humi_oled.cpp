@@ -17,40 +17,41 @@ static bool animState = false;
 static int animFrame = 0;
 static SystemState_t lastSentState = STATE_NORMAL;
 
-// Get specific warning message based on readings
-const char* getDisplayWarning(float temp, float humidity) {
-    if (temp > 35.0) return "TOO HOT!";
-    if (temp > 30.0) return "HOT";
-    if (temp < 20.0) return "COLD";
-    if (humidity < 30.0) return "TOO DRY!";
-    if (humidity < 40.0) return "DRY";
-    if (humidity > 70.0) return "TOO HUMID";
-    return "WARNING";
-}
-
-// Get status text for normal display
+// Get status text for normal display (using centralized thresholds)
 const char* getNormalStatus(float temp, float humidity) {
     // Ideal conditions: 25-30C and 40-60%
-    if (temp >= 25.0 && temp <= 30.0 && humidity >= 40.0 && humidity <= 60.0) {
+    if (temp >= 25.0 && temp <= TEMP_NORMAL_MAX && 
+        humidity >= HUMIDITY_NORMAL_MIN && humidity <= HUMIDITY_NORMAL_MAX) {
         return "IDEAL";
     }
     // Good conditions: 20-30C and 40-70%
-    if (temp >= 20.0 && temp <= 30.0 && humidity >= 40.0 && humidity <= 70.0) {
+    if (temp >= TEMP_NORMAL_MIN && temp <= TEMP_NORMAL_MAX && 
+        humidity >= HUMIDITY_NORMAL_MIN && humidity <= HUMIDITY_WARNING_HIGH) {
         return "GOOD";
     }
     return "OK";
 }
 
+// Get specific warning message based on readings (using centralized thresholds)
+const char* getDisplayWarning(float temp, float humidity) {
+    if (temp > TEMP_CRITICAL) return "TOO HOT!";
+    if (temp > TEMP_HOT) return "HOT";
+    if (temp < TEMP_COLD) return "COLD";
+    if (temp < TEMP_NORMAL_MIN) return "COOL";
+    if (humidity < HUMIDITY_CRITICAL_LOW) return "TOO DRY!";
+    if (humidity < HUMIDITY_WARNING_LOW) return "DRY";
+    if (humidity > HUMIDITY_WARNING_HIGH) return "TOO HUMID";
+    return "WARNING";
+}
+
 void drawNormalDisplay(float temp, float humidity) {
     display.clearDisplay();
     
-    // Status header
+    // Status header (without brackets and "Environment")
     const char* status = getNormalStatus(temp, humidity);
     display.setTextSize(1);
     display.setCursor(0, 0);
-    display.print(F("[ "));
     display.print(status);
-    display.print(F(" ] Environment"));
     
     display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
     
@@ -71,7 +72,7 @@ void drawNormalDisplay(float temp, float humidity) {
     // Smiley based on comfort
     display.setCursor(100, 28);
     display.setTextSize(2);
-    if (temp >= 25.0 && temp <= 30.0 && humidity >= 40.0 && humidity <= 60.0) {
+    if (temp >= 25.0 && temp <= 30.0 && humidity >= 40.0 && humidity <= HUMIDITY_NORMAL_MAX) {
         display.print(F(":D"));  // Very happy - ideal
     } else {
         display.print(F(":)"));  // Happy - good
@@ -146,12 +147,12 @@ void drawCriticalDisplay(float temp, float humidity, int frame) {
     display.print(humidity, 0);
     display.print(F("%"));
     
-    // Action message based on condition
+    // Action message based on condition (using centralized thresholds)
     display.setTextSize(1);
     display.setCursor(0, 48);
-    if (temp > 35.0) {
+    if (temp > TEMP_CRITICAL) {
         display.print(F("TOO HOT! Cool down!"));
-    } else if (humidity < 30.0) {
+    } else if (humidity < HUMIDITY_CRITICAL_LOW) {
         display.print(F("TOO DRY! Add moisture!"));
     } else {
         display.print(F("Check environment!"));
@@ -168,29 +169,37 @@ void drawCriticalDisplay(float temp, float humidity, int frame) {
 }
 
 void drawFireAlertDisplay(int frame) {
-    // Full screen flash
-    if (frame % 2 == 0) {
-        display.fillScreen(SSD1306_WHITE);
-        display.setTextColor(SSD1306_BLACK);
-    } else {
-        display.clearDisplay();
-        display.setTextColor(SSD1306_WHITE);
-    }
+    display.clearDisplay();
     
+    // Fire icon (simple flame shape using lines)
+    // Flame base
+    display.fillTriangle(20, 50, 35, 20, 50, 50, SSD1306_WHITE);
+    display.fillTriangle(25, 50, 35, 30, 45, 50, SSD1306_BLACK);
+    // Inner flame
+    display.fillTriangle(30, 50, 35, 35, 40, 50, SSD1306_WHITE);
+    
+    // "FIRE!!!" text
     display.setTextSize(2);
-    display.setCursor(16, 8);
-    display.print(F("FIRE!!"));
-    
-    display.setTextSize(3);
-    display.setCursor(48, 28);
-    display.print(F("*"));
+    display.setCursor(60, 8);
+    display.print(F("FIRE"));
     
     display.setTextSize(1);
-    display.setCursor(20, 54);
+    display.setCursor(60, 28);
+    display.print(F("DETECTED!"));
+    
+    // Warning message
+    display.setTextSize(1);
+    display.setCursor(0, 56);
     display.print(F("!! EVACUATE NOW !!"));
     
+    // Blinking exclamation (subtle animation)
+    if (frame % 2 == 0) {
+        display.setTextSize(2);
+        display.setCursor(112, 8);
+        display.print(F("!"));
+    }
+    
     display.display();
-    display.setTextColor(SSD1306_WHITE);
 }
 
 // Send state alert to webserver
@@ -285,7 +294,17 @@ void temp_humi_oled(void *pvParameters) {
         sensorData.temperature = temperature;
         sensorData.humidity = humidity;
         
-        // Evaluate state with new logic
+        // Read flame_detected from queue (updated by flame sensor task)
+        // This ensures OLED task knows about fire detection immediately
+        if (xSensorDataQueue != NULL) {
+            SensorData_t queueData;
+            if (xQueuePeek(xSensorDataQueue, &queueData, pdMS_TO_TICKS(50)) == pdTRUE) {
+                sensorData.flame_detected = queueData.flame_detected;
+            }
+        }
+        
+        // Evaluate state with new logic (including flame detection)
+        // evaluateSystemState() prioritizes flame: if flame=true, returns STATE_FIRE_ALERT
         SystemState_t newState = evaluateSystemState(temperature, humidity, sensorData.flame_detected);
         updateSystemState(newState);
         

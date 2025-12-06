@@ -1,76 +1,79 @@
 \babel@toc {english}{}\relax 
 \contentsline {chapter}{Introduction and Objectives}{6}{chapter*.2}%
-\contentsline {chapter}{\numberline {1}Core IOT Platform and Dashboard Design}{10}{chapter.1}%
-\contentsline {section}{\numberline {1.1}Create Core IOT Account}{10}{section.1.1}%
-\contentsline {subsection}{\numberline {1.1.1}Registration Process}{10}{subsection.1.1.1}%
-\contentsline {subsection}{\numberline {1.1.2}Device Provisioning}{13}{subsection.1.1.2}%
-\contentsline {section}{\numberline {1.2}Telemetry Data Transmission}{15}{section.1.2}%
-\contentsline {section}{\numberline {1.3}Dashboard Implementation}{17}{section.1.3}%
-\contentsline {subsection}{\numberline {1.3.1}Dashboard Layout Architecture}{18}{subsection.1.3.1}%
-\contentsline {subsection}{\numberline {1.3.2}Status Indicators and Device Metrics}{18}{subsection.1.3.2}%
-\contentsline {subsection}{\numberline {1.3.3}Remote Control Panel}{18}{subsection.1.3.3}%
-\contentsline {subsection}{\numberline {1.3.4}Environmental Data Visualization}{19}{subsection.1.3.4}%
-\contentsline {subsection}{\numberline {1.3.5}Alarm Management System}{20}{subsection.1.3.5}%
-\contentsline {subsection}{\numberline {1.3.6}Geographical Fleet Tracking}{20}{subsection.1.3.6}%
-\contentsline {subsection}{\numberline {1.3.7}Widget Configuration Best Practices}{21}{subsection.1.3.7}%
-\contentsline {section}{\numberline {1.4}Summary}{22}{section.1.4}%
-\contentsline {chapter}{\numberline {2}Hardware Implementation and Data Transmission}{24}{chapter.2}%
-\contentsline {section}{\numberline {2.1}System Architecture Overview}{24}{section.2.1}%
-\contentsline {section}{\numberline {2.2}Sensor and Actuator Integration}{25}{section.2.2}%
-\contentsline {subsection}{\numberline {2.2.1}Communication Interfaces Overview}{25}{subsection.2.2.1}%
-\contentsline {subsubsection}{Inter-Integrated Circuit (I2C)}{25}{subsection.2.2.1}%
-\contentsline {subsubsection}{Analog-to-Digital Conversion (ADC)}{25}{subsection.2.2.1}%
-\contentsline {subsection}{\numberline {2.2.2}Temperature and Humidity Sensor}{25}{subsection.2.2.2}%
-\contentsline {subsection}{\numberline {2.2.3}Light Intensity Sensor}{27}{subsection.2.2.3}%
-\contentsline {subsection}{\numberline {2.2.4}Soil Moisture Sensor}{28}{subsection.2.2.4}%
-\contentsline {subsection}{\numberline {2.2.5}Flame Detection Sensor}{29}{subsection.2.2.5}%
-\contentsline {subsection}{\numberline {2.2.6}Actuator Configuration}{30}{subsection.2.2.6}%
-\contentsline {section}{\numberline {2.3}Data Transmission to Core IOT Platform}{31}{section.2.3}%
-\contentsline {subsection}{\numberline {2.3.1}MQTT Protocol Overview}{31}{subsection.2.3.1}%
-\contentsline {subsection}{\numberline {2.3.2}Connection Establishment and Authentication}{32}{subsection.2.3.2}%
-\contentsline {subsection}{\numberline {2.3.3}Telemetry Data Publishing}{34}{subsection.2.3.3}%
-\contentsline {subsection}{\numberline {2.3.4}Bidirectional Communication: Remote Procedure Calls}{35}{subsection.2.3.4}%
-\contentsline {section}{\numberline {2.4}Communication Protocol Analysis}{36}{section.2.4}%
-\contentsline {subsection}{\numberline {2.4.1}Protocol Stack}{36}{subsection.2.4.1}%
-\contentsline {subsection}{\numberline {2.4.2}Data Format and Serialization}{37}{subsection.2.4.2}%
-\contentsline {subsection}{\numberline {2.4.3}Quality of Service Configuration}{37}{subsection.2.4.3}%
-\contentsline {section}{\numberline {2.5}Thread-Safe Data Management}{38}{section.2.5}%
-\contentsline {chapter}{\numberline {3}FreeRTOS Task Synchronization and Visual Feedback}{40}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Theoretical Background: Real-Time Synchronization}{40}{section.3.1}%
-\contentsline {subsection}{\numberline {3.1.1}Binary Semaphores for Signaling}{40}{subsection.3.1.1}%
-\contentsline {subsection}{\numberline {3.1.2}Mutexes for Resource Protection}{41}{subsection.3.1.2}%
-\contentsline {subsection}{\numberline {3.1.3}Message Queues for Inter-Task Communication}{41}{subsection.3.1.3}%
-\contentsline {section}{\numberline {3.2}Task Layout Overview}{41}{section.3.2}%
-\contentsline {subsection}{\numberline {3.2.1}Sensors and Actuators Used}{42}{subsection.3.2.1}%
-\contentsline {section}{\numberline {3.3}LED Blink Control}{44}{section.3.3}%
-\contentsline {subsection}{\numberline {3.3.1}LED Behavior Summary}{44}{subsection.3.3.1}%
-\contentsline {subsection}{\numberline {3.3.2}Semaphore-Based State Handling}{45}{subsection.3.3.2}%
-\contentsline {subsection}{\numberline {3.3.3}LED Task Loop}{45}{subsection.3.3.3}%
-\contentsline {section}{\numberline {3.4}Humidity NeoPixel Control}{46}{section.3.4}%
-\contentsline {subsection}{\numberline {3.4.1}Humidity-to-Color Map}{46}{subsection.3.4.1}%
-\contentsline {subsection}{\numberline {3.4.2}State-Based Effects}{46}{subsection.3.4.2}%
-\contentsline {subsection}{\numberline {3.4.3}NeoPixel Task Loop}{48}{subsection.3.4.3}%
-\contentsline {section}{\numberline {3.5}OLED Status Display}{49}{section.3.5}%
-\contentsline {subsection}{\numberline {3.5.1}OLED Layout Modes}{49}{subsection.3.5.1}%
-\contentsline {subsection}{\numberline {3.5.2}State Selection Flow}{51}{subsection.3.5.2}%
-\contentsline {subsection}{\numberline {3.5.3}Queue and Semaphore Data Flow}{53}{subsection.3.5.3}%
-\contentsline {section}{\numberline {3.6}Light Intensity Processing}{55}{section.3.6}%
-\contentsline {subsection}{\numberline {3.6.1}Signal Conditioning and Conversion}{55}{subsection.3.6.1}%
-\contentsline {subsection}{\numberline {3.6.2}Implementation Logic}{56}{subsection.3.6.2}%
-\contentsline {section}{\numberline {3.7}Soil Moisture and Automated Irrigation}{56}{section.3.7}%
-\contentsline {subsection}{\numberline {3.7.1}Hybrid Producer-Consumer Architecture}{56}{subsection.3.7.1}%
-\contentsline {subsection}{\numberline {3.7.2}Control Logic with Safety Timeout}{57}{subsection.3.7.2}%
-\contentsline {section}{\numberline {3.8}Critical Safety Monitoring (Flame Detection)}{58}{section.3.8}%
-\contentsline {subsection}{\numberline {3.8.1}High-Priority Event Detection}{58}{subsection.3.8.1}%
-\contentsline {subsection}{\numberline {3.8.2}Debouncing Algorithm}{58}{subsection.3.8.2}%
-\contentsline {chapter}{\numberline {4}Web Server Interface and Cloud Integration}{60}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Embedded Web Server Design}{60}{section.4.1}%
-\contentsline {subsection}{\numberline {4.1.1}Access Point Configuration}{60}{subsection.4.1.1}%
-\contentsline {subsection}{\numberline {4.1.2}User Interface Implementation}{61}{subsection.4.1.2}%
-\contentsline {subsection}{\numberline {4.1.3}Web Communication Protocols}{61}{subsection.4.1.3}%
-\contentsline {subsubsection}{HTTP vs. WebSocket}{61}{subsection.4.1.3}%
-\contentsline {subsection}{\numberline {4.1.4}WebSocket Communication}{62}{subsection.4.1.4}%
-\contentsline {section}{\numberline {4.2}Cloud Integration and Data Publishing}{62}{section.4.2}%
-\contentsline {subsection}{\numberline {4.2.1}Station Mode Connectivity}{63}{subsection.4.2.1}%
-\contentsline {subsection}{\numberline {4.2.2}Data Publishing to CoreIOT}{63}{subsection.4.2.2}%
-\contentsline {subsection}{\numberline {4.2.3}Integration Improvements}{64}{subsection.4.2.3}%
+\contentsline {chapter}{\numberline {1}Hardware and Platform Overview}{10}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Introduction to Yolo Uno}{10}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Core IOT Platform Setup}{11}{section.1.2}%
+\contentsline {subsection}{\numberline {1.2.1}Registration Process}{11}{subsection.1.2.1}%
+\contentsline {subsection}{\numberline {1.2.2}Device Provisioning}{14}{subsection.1.2.2}%
+\contentsline {section}{\numberline {1.3}Telemetry Data Transmission}{15}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Dashboard Implementation}{16}{section.1.4}%
+\contentsline {subsection}{\numberline {1.4.1}Dashboard Layout Architecture}{17}{subsection.1.4.1}%
+\contentsline {subsection}{\numberline {1.4.2}Status Indicators and Device Metrics}{17}{subsection.1.4.2}%
+\contentsline {subsection}{\numberline {1.4.3}Remote Control Panel}{17}{subsection.1.4.3}%
+\contentsline {subsection}{\numberline {1.4.4}Environmental Data Visualization}{18}{subsection.1.4.4}%
+\contentsline {subsection}{\numberline {1.4.5}Alarm Management System}{19}{subsection.1.4.5}%
+\contentsline {subsection}{\numberline {1.4.6}Geographical Fleet Tracking}{21}{subsection.1.4.6}%
+\contentsline {subsection}{\numberline {1.4.7}Widget Configuration Best Practices}{21}{subsection.1.4.7}%
+\contentsline {section}{\numberline {1.5}Summary}{22}{section.1.5}%
+\contentsline {chapter}{\numberline {2}Task 1 - Single LED Blink with Temperature Conditions}{23}{chapter.2}%
+\contentsline {section}{\numberline {2.1}LED Behavior Summary}{24}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Semaphore-Based State Handling}{25}{section.2.2}%
+\contentsline {section}{\numberline {2.3}LED Task Loop}{26}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Visualizing LED Response}{27}{section.2.4}%
+\contentsline {chapter}{\numberline {3}Task 2 - NeoPixel LED Control Based on Humidity}{28}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Humidity-to-Color Map}{29}{section.3.1}%
+\contentsline {section}{\numberline {3.2}State-Based Effects}{29}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Semaphore Mechanism and Priority}{29}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Signaling Mechanism}{29}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Priority Hierarchy}{30}{subsection.3.3.2}%
+\contentsline {section}{\numberline {3.4}NeoPixel Task Loop}{31}{section.3.4}%
+\contentsline {section}{\numberline {3.5}NeoPixel Color Mapping}{33}{section.3.5}%
+\contentsline {chapter}{\numberline {4}Task 3 - Temperature and Humidity Monitoring with LCD Display}{34}{chapter.4}%
+\contentsline {section}{\numberline {4.1}OLED Layout Modes}{35}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}Normal State}{35}{subsection.4.1.1}%
+\contentsline {subsection}{\numberline {4.1.2}Warning State}{35}{subsection.4.1.2}%
+\contentsline {subsection}{\numberline {4.1.3}Critical State}{36}{subsection.4.1.3}%
+\contentsline {subsection}{\numberline {4.1.4}Fire Alert State}{36}{subsection.4.1.4}%
+\contentsline {section}{\numberline {4.2}State Selection Flow}{36}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Queue and Semaphore Data Flow}{38}{section.4.3}%
+\contentsline {chapter}{\numberline {5}Web Server Interface and Cloud Integration}{41}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Embedded Web Server Design}{41}{section.5.1}%
+\contentsline {subsection}{\numberline {5.1.1}Access Point Configuration}{41}{subsection.5.1.1}%
+\contentsline {subsection}{\numberline {5.1.2}User Interface Implementation}{42}{subsection.5.1.2}%
+\contentsline {subsection}{\numberline {5.1.3}Web Communication Protocols}{42}{subsection.5.1.3}%
+\contentsline {subsubsection}{HTTP vs. WebSocket}{42}{subsection.5.1.3}%
+\contentsline {subsection}{\numberline {5.1.4}WebSocket Communication}{43}{subsection.5.1.4}%
+\contentsline {section}{\numberline {5.2}Cloud Integration and Data Publishing}{43}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Station Mode Connectivity}{44}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Data Publishing to CoreIOT}{44}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Integration Improvements}{45}{subsection.5.2.3}%
+\contentsline {section}{\numberline {5.3}Data Logging and CSV Export}{45}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}CSV File Structure}{45}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}System State Classification}{46}{subsection.5.3.2}%
+\contentsline {chapter}{\numberline {6}Chapter 6}{47}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Section 1}{47}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Section 2}{47}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Summary}{47}{section.6.3}%
+\contentsline {chapter}{\numberline {7}Task 6 - Data Publishing to CoreIOT Cloud Server}{48}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Create Core IOT Account}{48}{section.7.1}%
+\contentsline {subsection}{\numberline {7.1.1}Registration Process}{48}{subsection.7.1.1}%
+\contentsline {section}{\numberline {7.2}Accessing CoreIOT via Web Server}{51}{section.7.2}%
+\contentsline {subsection}{\numberline {7.2.1}Device Provisioning}{52}{subsection.7.2.1}%
+\contentsline {section}{\numberline {7.3}Telemetry Data Transmission}{54}{section.7.3}%
+\contentsline {section}{\numberline {7.4}Dashboard Implementation}{56}{section.7.4}%
+\contentsline {subsection}{\numberline {7.4.1}Dashboard Layout Architecture}{57}{subsection.7.4.1}%
+\contentsline {subsection}{\numberline {7.4.2}Status Indicators and Device Metrics}{57}{subsection.7.4.2}%
+\contentsline {subsection}{\numberline {7.4.3}Remote Control Panel}{57}{subsection.7.4.3}%
+\contentsline {subsection}{\numberline {7.4.4}Environmental Data Visualization}{58}{subsection.7.4.4}%
+\contentsline {subsection}{\numberline {7.4.5}Alarm Management System}{59}{subsection.7.4.5}%
+\contentsline {subsection}{\numberline {7.4.6}Widget Configuration}{61}{subsection.7.4.6}%
+\contentsline {section}{\numberline {7.5}Summary}{61}{section.7.5}%
+\contentsline {chapter}{\numberline {8}Chapter 8}{62}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Section 1}{62}{section.8.1}%
+\contentsline {section}{\numberline {8.2}Section 2}{62}{section.8.2}%
+\contentsline {section}{\numberline {8.3}Summary}{62}{section.8.3}%
+\contentsline {chapter}{\numberline {9}Chapter 9}{63}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Section 1}{63}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Section 2}{63}{section.9.2}%
+\contentsline {section}{\numberline {9.3}Summary}{63}{section.9.3}%
+\contentsline {chapter}{Conclusion}{64}{chapter*.29}%

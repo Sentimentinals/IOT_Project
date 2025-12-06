@@ -50,8 +50,11 @@
 \renewcommand{\@title}{Report title}
 \newcommand{\otitle}[1]{\renewcommand{\@title}{#1}}
 
-\newcommand{\@advisor}{Advisor}
+\newcommand{\@advisor}{Dr: }
 \newcommand{\oadvisor}[1]{\renewcommand{\@advisor}{#1}}
+
+\newcommand{\@Dr}{Dr: }
+\newcommand{\oDr}[1]{\renewcommand{\@Dr}{#1}}
 
 \newcommand{\@reportplace}{Ho Chi Minh City}
 \newcommand{\oreportplace}[1]{\renewcommand{\@reportplace}{#1}}
@@ -173,7 +176,7 @@
     \vspace{2cm}
     
     \begin{tabular}{rl}
-      \textbf{Advisor:} & \@advisor \\
+      \textbf{\@Dr} & \@advisor \\
     \end{tabular}
     
     \vfill

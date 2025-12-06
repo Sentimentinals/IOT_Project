@@ -1,0 +1,173 @@
+\chapter{Task 3 - Temperature and Humidity Monitoring with LCD Display}
+
+This chapter presents the design and implementation of the temperature and humidity monitoring system integrated with an OLED display for real-time environmental visualization. The system continuously measures ambient conditions and dynamically updates the display based on predefined operational states, including Normal, Warning, Critical, and Fire Alert. Each state is represented using a distinct visual layout to ensure clear communication of system status to the user. Particular emphasis is placed on intuitive visual cues, emergency prioritization, and readability under varying conditions. The chapter focuses on how sensor data is translated into meaningful visual feedback through structured display modes.
+
+\newpage
+
+\section{OLED Layout Modes}
+
+We implemented an OLED display (SSD1306, 128x64 pixels) that shows environmental data with different layouts based on the system state. Instead of a static display, the screen content adapts dynamically to prioritize the most critical information.
+
+\subsection{Normal State}
+In the **Normal** state (Temperature 15--30\textdegree C, Humidity 40--80\%), the display shows a clean layout with full temperature and humidity values. It includes a comfort status text (IDEAL or GOOD) and a smiley icon to indicate safe conditions. This mode is designed for readability and reassurance.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{assets/oled_normal.png}
+    \caption{OLED display in Normal state showing temperature, humidity, and comfort icon.}
+    \label{fig:oled_normal}
+\end{figure}
+
+\subsection{Warning State}
+The **Warning** state triggers when conditions drift outside the comfortable range (Temperature \textless 15\textdegree C or \textgreater 33\textdegree C, or Humidity \textless 40\% or \textgreater 80\%). The display features a blinking border (500ms interval) to catch the user's eye. It shows abbreviated sensor readings and a specific warning message (e.g., "HOT", "COLD", "DRY", "TOO HUMID") along with an exclamation icon.
+
+\subsection{Critical State}
+In the **Critical** state (Temperature \textgreater 40\textdegree C or Humidity \textless 30\%), the display switches to a high-urgency mode. The header is inverted and flashes to maximize contrast. The screen displays the sensor values along with a corrective action message (e.g., "TOO HOT! Cool down!" or "TOO DRY! Add moisture!"), guiding the user to take immediate steps.
+
+\subsection{Fire Alert State}
+The **Fire Alert** state is the highest priority. When a flame is detected, the screen ignores sensor values and flashes a full-screen emergency alert. It displays "FIRE DETECTED!" and "EVACUATE NOW" in large text. This mode is designed to be visible from a distance to ensure safety.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{assets/oled_fire.png}
+    \caption{OLED display in Fire Alert state showing emergency evacuation message.}
+    \label{fig:oled_fire}
+\end{figure}
+
+\section{State Selection Flow}
+
+The OLED task uses a semaphore-based mechanism to decide which display function to execute. Instead of complex if-else chains checking global variables, the task simply checks which state semaphore is currently available. This ensures that the display logic is always synchronized with the system's core state machine.
+
+The state evaluation logic enforces a priority hierarchy: \textbf{Fire Alert} takes precedence over \textbf{Critical}, which overrides \textbf{Warning}, with \textbf{Normal} being the default state. This guarantees that the most urgent information is always displayed.
+
+The following pseudocode describes the selection flow:
+
+\begin{verbatim}
+FUNCTION updateDisplay():
+    Acquire I2C Mutex
+    
+    // Check which state is active
+    state = getSystemState()
+    
+    SWITCH state:
+        CASE FIRE_ALERT:
+            drawFireAlertDisplay(animationFrame)
+            BREAK
+            
+        CASE CRITICAL:
+            drawCriticalDisplay(temp, humi, animationFrame)
+            BREAK
+            
+        CASE WARNING:
+            drawWarningDisplay(temp, humi, animationState)
+            BREAK
+            
+        CASE NORMAL:
+            drawNormalDisplay(temp, humi)
+            BREAK
+            
+    Release I2C Mutex
+    
+    // Adjust refresh rate based on urgency
+    IF state >= WARNING:
+        Delay 300ms  // Fast refresh for alerts
+    ELSE:
+        Delay 1000ms // Save power in normal mode
+END FUNCTION
+\end{verbatim}
+
+\section{Queue and Semaphore Data Flow}
+
+One of the main requirements was to remove all global variables and use RTOS primitives instead. We did this by putting all sensor readings into a \texttt{SensorData\_t} structure that goes through the queue, and using semaphores for state information.
+
+We removed global variables in three ways:
+
+\begin{enumerate}
+    \item \textbf{Data in Queue:} All sensor values are stored in the \texttt{SensorData\_t} struct in the queue, so we don't need separate global variables for temperature, humidity, etc.
+    \item \textbf{State with Semaphores:} We use binary semaphores to signal system states instead of global state variables
+    \item \textbf{Task Communication:} Tasks talk to each other through queues and semaphores, not shared memory, which makes it thread-safe
+\end{enumerate}
+
+The OLED task demonstrates this pattern through its main loop structure:
+
+\begin{verbatim}
+TASK temp_humi_oled():
+    Initialize OLED display (with I2C mutex protection)
+    Initialize DHT11 sensor
+    
+    WHILE TRUE:
+        Read temperature and humidity from DHT11
+        Validate readings
+        
+        // Pack data into struct (no global variables)
+        sensorData.temperature = temperature
+        sensorData.humidity = humidity
+        
+        // Evaluate state using pure function
+        newState = evaluateSystemState(temp, humidity, flame)
+        
+        // Update semaphores (thread-safe)
+        updateSystemState(newState)
+        
+        // Send to queue for other tasks
+        sendSensorData(sensorData)
+        
+        // Render display based on state
+        Acquire I2C mutex
+        currentState = getSystemState()
+        SWITCH currentState:
+            CASE FIRE_ALERT: drawFireAlertDisplay()
+            CASE CRITICAL: drawCriticalDisplay()
+            CASE WARNING: drawWarningDisplay()
+            CASE NORMAL: drawNormalDisplay()
+        Release I2C mutex
+        
+        // Adaptive delay based on urgency
+        IF state >= WARNING: Delay 300ms
+        ELSE: Delay 1000ms
+    END WHILE
+END TASK
+\end{verbatim}
+
+The state evaluation is implemented as a pure function with no side effects:
+
+\begin{verbatim}
+FUNCTION evaluateSystemState(temp, humidity, flame):
+    IF flame: RETURN FIRE_ALERT
+    IF temp > 40 OR humidity < 30: RETURN CRITICAL
+    IF temp < 20 OR temp > 33 OR humidity < 40 OR humidity > 80:
+        RETURN WARNING
+    RETURN NORMAL
+END FUNCTION
+\end{verbatim}
+
+The state update function handles semaphore signaling with mutex protection, ensuring atomic state transitions:
+
+\begin{verbatim}
+FUNCTION updateSystemState(newState):
+    Acquire state mutex
+    IF newState != currentState:
+        // Clear all semaphores atomically
+        Take all state semaphores (timeout = 0)
+        
+        // Give only the active state semaphore
+        SWITCH newState:
+            CASE NORMAL: Give xSemaphoreNormal
+            CASE WARNING: Give xSemaphoreWarning
+            CASE CRITICAL: Give xSemaphoreCritical
+            CASE FIRE_ALERT: Give xSemaphoreFireAlert
+        
+        currentState = newState
+    Release state mutex
+END FUNCTION
+\end{verbatim}
+
+This architecture completely eliminates global variable dependencies by using FreeRTOS queues for data passing and semaphores for state signaling, achieving deterministic thread-safe inter-task communication without shared memory vulnerabilities.
+
+The OLED task works like this: it reads temperature and humidity from the DHT sensor, checks if the readings are valid, and puts them into a \texttt{SensorData\_t} structure. This structure is sent to the queue so other tasks can read it, avoiding global variables.
+
+To determine the system state, we call \texttt{evaluateSystemState()} which takes sensor readings and returns the state based on thresholds. This function doesn't use any global variables. Then we call \texttt{updateSystemState()} to update the semaphores.
+
+The \texttt{updateSystemState()} function works atomically: it first takes a mutex, then clears all state semaphores by taking them with zero timeout, and finally gives only the semaphore for the new state. This way, only one state semaphore is available at a time, so other tasks can check which state is active.
+
+For displaying, the task takes the I2C mutex before writing to the OLED, calls \texttt{getSystemState()} to check which state semaphore is available, and then calls the right display function. We use different delays: 300 ms during warnings/critical states for faster updates, and 1000 ms during normal operation to save CPU.

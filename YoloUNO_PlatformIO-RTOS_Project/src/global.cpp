@@ -20,7 +20,8 @@ QueueHandle_t xSensorDataQueue = NULL;
 SemaphoreHandle_t xBinarySemaphoreInternet = NULL;
 SemaphoreHandle_t xI2CMutex = NULL;
 SemaphoreHandle_t xStateMutex = NULL;
-SemaphoreHandle_t xQueueMutex = NULL;  // NEW: Mutex for queue access
+SemaphoreHandle_t xQueueMutex = NULL;  // Mutex for queue access
+SemaphoreHandle_t xSerialMutex = NULL; // Mutex for Serial output
 
 SemaphoreHandle_t xSemaphoreNormal = NULL;
 SemaphoreHandle_t xSemaphoreWarning = NULL;
@@ -38,7 +39,8 @@ void initRTOSPrimitives() {
     xBinarySemaphoreInternet = xSemaphoreCreateBinary();
     xI2CMutex = xSemaphoreCreateMutex();
     xStateMutex = xSemaphoreCreateMutex();
-    xQueueMutex = xSemaphoreCreateMutex(); 
+    xQueueMutex = xSemaphoreCreateMutex();
+    xSerialMutex = xSemaphoreCreateMutex(); 
     
     xSemaphoreNormal = xSemaphoreCreateBinary();
     xSemaphoreWarning = xSemaphoreCreateBinary();
@@ -190,11 +192,14 @@ SystemState_t evaluateSystemState(float temp, float humidity, bool flame) {
         return STATE_FIRE_ALERT;
     }
     
-    if (temp > 35.0 || humidity < 30.0) {
+    // Critical: Too hot OR too dry
+    if (temp > TEMP_CRITICAL || humidity < HUMIDITY_CRITICAL_LOW) {
         return STATE_CRITICAL;
     }
     
-    if (temp < 20.0 || temp > 30.0 || humidity < 40.0 || humidity > 70.0) {
+    // Warning: Outside comfortable range
+    if (temp < TEMP_NORMAL_MIN || temp > TEMP_HOT || 
+        humidity < HUMIDITY_WARNING_LOW || humidity > HUMIDITY_WARNING_HIGH) {
         return STATE_WARNING;
     }
     
@@ -205,12 +210,13 @@ SystemState_t evaluateSystemState(float temp, float humidity, bool flame) {
  * Get warning reason string based on current readings
  */
 const char* getWarningReason(float temp, float humidity) {
-    if (temp > 35.0) return "Too Hot";
-    if (humidity < 30.0) return "Too Dry";
-    if (temp > 30.0) return "Hot";
-    if (temp < 20.0) return "Cold";
-    if (humidity < 40.0) return "Dry";
-    if (humidity > 70.0) return "Too Humid";
+    if (temp > TEMP_CRITICAL) return "Too Hot";
+    if (humidity < HUMIDITY_CRITICAL_LOW) return "Too Dry";
+    if (temp > TEMP_HOT) return "Hot";
+    if (temp < TEMP_COLD) return "Cold";
+    if (temp < TEMP_NORMAL_MIN) return "Cool";
+    if (humidity < HUMIDITY_WARNING_LOW) return "Dry";
+    if (humidity > HUMIDITY_WARNING_HIGH) return "Too Humid";
     return "Check Environment";
 }
 
