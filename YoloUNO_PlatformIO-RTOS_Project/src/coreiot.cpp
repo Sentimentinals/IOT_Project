@@ -1,4 +1,5 @@
 #include "coreiot.h"
+#include <cstring>
 
 const char* coreIOT_Server = "app.coreiot.io";  
 const char* coreIOT_Token = "g7drm1amhd3dchr379xu";

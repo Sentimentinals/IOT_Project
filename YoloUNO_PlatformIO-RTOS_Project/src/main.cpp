@@ -2,7 +2,6 @@
 #include <Wire.h>
 #include "led_blinky.h"
 #include "neo_blinky.h"
-#include "temp_humi_monitor.h"
 #include "temp_humi_oled.h"
 #include "temp_humi_csv.h"
 #include "sensor_light.h"

@@ -1,4 +1,5 @@
 #include "task_rs485.h"
+#include <cstring>
 
 HardwareSerial RS485Serial(1);
 
