@@ -7,8 +7,6 @@
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 
-// ==================== SENSOR DATA STRUCTURE ====================
-// Thay thế global variables bằng struct truyền qua Queue
 typedef struct {
     float temperature;
     float humidity;
@@ -20,7 +18,6 @@ typedef struct {
     bool water_pump_enabled;
 } SensorData_t;
 
-// ==================== SYSTEM STATE ENUM ====================
 typedef enum {
     STATE_NORMAL = 0,      // Mọi thứ bình thường
     STATE_WARNING,         // Cảnh báo (temp cao hoặc humidity thấp)
@@ -35,11 +32,6 @@ extern String CORE_IOT_TOKEN;
 extern String CORE_IOT_SERVER;
 extern int CORE_IOT_PORT;
 
-// ==================== LEGACY VARIABLES (kept for compatibility) ====================
-extern String ssid;
-extern String password;
-extern String wifi_ssid;
-extern String wifi_password;
 extern boolean isWifiConnected;
 extern bool glob_ntp_synced;
 

@@ -80,11 +80,7 @@ void tiny_ml_task(void* pvParameters)
             continue;
         }
 
-        // ------------------------------
-        // Fill input: 4 floats
-        // Order MUST MATCH training data:
-        // [ temperature, humidity, light_level, moisture_level ]
-        // ------------------------------
+
         input->data.f[0] = sensorData.temperature;
         input->data.f[1] = sensorData.humidity;
         input->data.f[2] = sensorData.light_level;
