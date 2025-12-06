@@ -1,0 +1,7 @@
+{
+  "WIFI_SSID": "DUC TAI",
+  "WIFI_PASS": "20112004",
+  "CORE_IOT_TOKEN": "",
+  "CORE_IOT_SERVER": "app.coreiot.io",
+  "CORE_IOT_PORT": 1883
+}

@@ -1,61 +1,92 @@
 #include <task_handler.h>
+#include "sensor_water_pump.h"
 
 void handleWebSocketMessage(String message)
 {
-    Serial.println(message);
     StaticJsonDocument<256> doc;
 
     DeserializationError error = deserializeJson(doc, message);
     if (error)
     {
-        Serial.println("❌ Lỗi parse JSON!");
         return;
     }
+    
     JsonObject value = doc["value"];
+    
     if (doc["page"] == "device")
     {
         if (!value.containsKey("gpio") || !value.containsKey("status"))
         {
-            Serial.println("⚠️ JSON thiếu thông tin gpio hoặc status");
             return;
         }
 
         int gpio = value["gpio"];
         String status = value["status"].as<String>();
 
-        Serial.printf("⚙️ Điều khiển GPIO %d → %s\n", gpio, status.c_str());
         pinMode(gpio, OUTPUT);
         if (status.equalsIgnoreCase("ON"))
         {
             digitalWrite(gpio, HIGH);
-            Serial.printf("🔆 GPIO %d ON\n", gpio);
         }
         else if (status.equalsIgnoreCase("OFF"))
         {
             digitalWrite(gpio, LOW);
-            Serial.printf("💤 GPIO %d OFF\n", gpio);
         }
     }
-    else if (doc["page"] == "setting")
+    else if (doc["page"] == "wifi_setting")
     {
-        String WIFI_SSID = doc["value"]["ssid"].as<String>();
-        String WIFI_PASS = doc["value"]["password"].as<String>();
-        String CORE_IOT_TOKEN = doc["value"]["token"].as<String>();
-        String CORE_IOT_SERVER = doc["value"]["server"].as<String>();
-        String CORE_IOT_PORT = doc["value"]["port"].as<String>();
+        String ssid = doc["value"]["ssid"].as<String>();
+        String pass = doc["value"]["password"].as<String>();
 
-        Serial.println("📥 Nhận cấu hình từ WebSocket:");
-        Serial.println("SSID: " + WIFI_SSID);
-        Serial.println("PASS: " + WIFI_PASS);
-        Serial.println("TOKEN: " + CORE_IOT_TOKEN);
-        Serial.println("SERVER: " + CORE_IOT_SERVER);
-        Serial.println("PORT: " + CORE_IOT_PORT);
+        Serial.println("[Config] WiFi: " + ssid);
+        Save_wifi_File(ssid, pass);
 
-        // 👉 Gọi hàm lưu cấu hình
-        Save_info_File(WIFI_SSID, WIFI_PASS, CORE_IOT_TOKEN, CORE_IOT_SERVER, CORE_IOT_PORT);
+        String msg = "{\"status\":\"ok\",\"page\":\"wifi_saved\"}";
+        ws.textAll(msg);
+    }
+    else if (doc["page"] == "coreiot_setting")
+    {
+        String token = doc["value"]["token"].as<String>();
+        String server = doc["value"]["server"].as<String>();
+        String port = doc["value"]["port"].as<String>();
 
-        // Phản hồi lại client (tùy chọn)
-        String msg = "{\"status\":\"ok\",\"page\":\"setting_saved\"}";
+        Serial.println("[Config] CoreIOT: " + server);
+        Save_coreiot_File(token, server, port);
+
+        String msg = "{\"status\":\"ok\",\"page\":\"coreiot_saved\"}";
+        ws.textAll(msg);
+    }
+    else if (doc["page"] == "neoled")
+    {
+        bool enabled = doc["value"]["enabled"].as<bool>();
+        
+        // Thread-safe update
+        updateSensorField_NeoLed(enabled);
+        
+        String msg = "{\"status\":\"ok\",\"page\":\"neoled\",\"enabled\":" + String(enabled ? "true" : "false") + "}";
+        ws.textAll(msg);
+    }
+    else if (doc["page"] == "fan_control")
+    {
+        bool enabled = doc["value"]["enabled"].as<bool>();
+        
+        pinMode(2, OUTPUT);
+        digitalWrite(2, enabled ? HIGH : LOW);
+        
+        // Thread-safe update
+        updateSensorField_Fan(enabled);
+        
+        String msg = "{\"status\":\"ok\",\"page\":\"fan_control\",\"enabled\":" + String(enabled ? "true" : "false") + "}";
+        ws.textAll(msg);
+    }
+    else if (doc["page"] == "pump_control")
+    {
+        bool enabled = doc["value"]["enabled"].as<bool>();
+        
+        // Use dedicated function for manual pump control
+        setWaterPumpManual(enabled);
+        
+        String msg = "{\"status\":\"ok\",\"page\":\"pump_control\",\"enabled\":" + String(enabled ? "true" : "false") + ",\"mode\":\"manual\"}";
         ws.textAll(msg);
     }
 }

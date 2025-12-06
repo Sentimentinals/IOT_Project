@@ -7,6 +7,7 @@
 #include <AsyncTCP.h>
 #include <ArduinoJson.h>
 #include <ElegantOTA.h>
+#include <esp_heap_caps.h>
 #include <task_handler.h>
 
 extern AsyncWebServer server;

@@ -2,8 +2,10 @@
 #ifndef __TASK_HANDLER_H__
 #define __TASK_HANDLER_H__
 
+#include "global.h"
 #include <ArduinoJson.h>
 #include <task_check_info.h>
+#include <task_webserver.h>
 
 extern void handleWebSocketMessage(String message);
 #endif

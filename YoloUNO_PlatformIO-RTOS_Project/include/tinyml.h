@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#include "dht_anomaly_model.h"
+#include "tiny_ml_model.h"
 #include "global.h"
 
 #include <TensorFlowLite_ESP32.h>
@@ -17,3 +17,4 @@ void setupTinyML();
 void tiny_ml_task(void *pvParameters);
 
 #endif
+
