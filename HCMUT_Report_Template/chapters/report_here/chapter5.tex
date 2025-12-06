@@ -1,56 +1,88 @@
 \chapter{Web Server Interface and Cloud Integration}
 
-This chapter details the implementation of the user interface and cloud connectivity features. We designed a dual-mode network architecture where the ESP32 operates simultaneously as an Access Point (AP) for local control and a Station (STA) for cloud data publishing. This hybrid approach ensures that the device remains controllable locally even when internet connectivity is lost.
+This chapter refines the web server and cloud integration so the report is accurate and presentation-ready. The ESP32 runs AP and STA together: the AP keeps local access alive for control/OTA, while STA reconnects in the background to restore cloud links and telemetry.
 
-\section{Embedded Web Server Design}
+\section{Web Server Design}
 
-We developed a responsive web interface hosted directly on the ESP32's flash memory using the LittleFS file system. The web server is built on the \texttt{ESPAsyncWebServer} library, which provides asynchronous request handling to maintain system responsiveness even under heavy network load.
+Static UI assets live in LittleFS and are served by \texttt{ESPAsyncWebServer} so request handling stays asynchronous and non-blocking. Figure~\ref{fig:backend_block} summarizes how the networking stack, web layer, message queues, and FreeRTOS tasks interact from ingress to actuation/cloud forwarding.
+
+\begin{figure}[H]
+    \centering
+    % TODO: Thay bằng sơ đồ khối backend thực tế
+    \fbox{\parbox{0.9\textwidth}{\centering
+        \vspace{2.0cm}
+        \textit{[Backend Block Diagram]}\\
+        AP/STA WiFi $\rightarrow$ ESPAsyncWebServer + WebSocket $\rightarrow$ Message Queue $\rightarrow$ FreeRTOS Tasks (Sensor, Control, Cloud) $\rightarrow$ Peripherals/Cloud\\
+        \vspace{2.0cm}
+    }}
+    \caption{Sơ đồ khối backend: từ tầng mạng đến queue và các task điều khiển/đồng bộ cloud.}
+    \label{fig:backend_block}
+\end{figure}
 
 \subsection{Access Point Configuration}
 
-To ensure the device is always accessible, we configured the ESP32 to broadcast its own WiFi network. This allows users to connect directly to the device without needing an external router.
+The ESP32 always boots in AP+STA mode so it never becomes unreachable. The AP is fixed at SSID \texttt{YoloUNO\_AP}, static IP \texttt{192.168.4.1}, WPA2-PSK. In \texttt{task\_wifi.cpp}, \texttt{ensureAP()} keeps that AP alive while \texttt{startSTA()} tries the stored home WiFi; if the STA link drops, \texttt{Wifi\_reconnect()} retries the uplink but still preserves the AP. Practically, users can always reach \texttt{192.168.4.1} for local control/OTA even when home WiFi changes; once STA succeeds, the device also announces its LAN IP and OTA URL.
 
-\begin{itemize}
-    \item \textbf{SSID:} \texttt{YoloUNO\_AP}
-    \item \textbf{IP Address:} \texttt{192.168.4.1} (Static)
-    \item \textbf{Security:} WPA2-PSK (Password protected)
-    \item \textbf{Mode:} \texttt{WIFI\_AP\_STA} (Simultaneous AP + Station)
-\end{itemize}
+\subsection{Request Handling and Task Flow}
 
-The network initialization logic in \texttt{task\_wifi.cpp} ensures that the AP interface remains active even while the device attempts to connect to an external WiFi network. This "AP-first" strategy prevents the device from becoming unreachable if the home WiFi credentials change or the router goes offline.
+All traffic enters the asynchronous web layer in \texttt{task\_webserver.cpp}. Static files, REST endpoints, and WebSocket events share a consistent path: parse/validate input, execute the requested control or info action, then broadcast the refreshed state to connected clients. Key endpoints include health check (\texttt{/health}), device info (\texttt{/info}), CSV lifecycle (\texttt{/download}, \texttt{/csv-info}, \texttt{/clear}), and OTA hooks (ElegantOTA). WebSocket messages are handled in \texttt{onEvent()} and forwarded to \texttt{handleWebSocketMessage()} for device control.
+
+\textbf{Backend execution.} \texttt{connnectWSV()} (in \texttt{task\_webserver.cpp}) mounts LittleFS assets, registers REST/WebSocket handlers, and enables ElegantOTA before \texttt{server.begin()}. \texttt{onEvent()} parses WebSocket frames and hands them to \texttt{handleWebSocketMessage()} for LED/pump control and state fan-out. \texttt{task\_wifi.cpp} enforces AP+STA so the AP at \texttt{192.168.4.1} stays up during STA reconnects. In the cloud path, \texttt{CORE\_IOT\_task} keeps the MQTT session alive, publishes telemetry every 10s, and applies RPC commands (fan/LED/pump) while mirroring states back to keep the dashboard switches in sync. Health, info, CSV download/clear/info, and OTA progress are exposed via lightweight endpoints and WebSocket notifications.
+\textbf{RPC and reconnect.} RPC callbacks (\texttt{setFanStatus}, \texttt{setLedEnabled}, \texttt{setWaterPumpStatus}) are executed inside \texttt{CORE\_IOT\_task}; each command drives the actuator, updates shared sensor state, and the paired getter RPCs return the latest value so dashboard toggles stay aligned. The MQTT loop reconnects whenever the link drops, resubscribes RPC/shared attributes, and resumes publishing without losing state. On the WiFi side, \texttt{Wifi\_reconnect()} rate-limits STA retries every 30s but never drops the AP, ensuring local UI/WebSocket/OTA remain reachable during WAN outages.
+
+\begin{figure}[H]
+    \centering
+    % TODO: Replace with actual backend flowchart
+    \fbox{\parbox{0.9\textwidth}{\centering
+        \vspace{1.8cm}
+        \textit{[Backend Flowchart]}\\
+        Client HTTP/WebSocket $\rightarrow$ Async Handler $\rightarrow$ Validate/Dispatch $\rightarrow$ Control or Info Action $\rightarrow$ State Broadcast\\
+        \vspace{1.8cm}
+    }}
+    \caption{Request/response flow across HTTP/WebSocket handlers, control actions, and outbound broadcasts.}
+    \label{fig:backend_flow}
+\end{figure}
 
 \subsection{User Interface Implementation}
 
-The user interface is implemented using standard HTML5, CSS3, and JavaScript, served as static files from the device's filesystem. This separation of concerns allows us to update the UI look-and-feel without recompiling the firmware.
-
-The interface features a dashboard layout with two primary control sections:
+UI assets (HTML5/CSS3/JavaScript) are decoupled from firmware—update LittleFS only to change the look. WebSocket pushes keep WiFi/MQTT badges live without reloading the page.
 
 \begin{enumerate}
-    \item \textbf{Device Control Panel:}
-    \begin{itemize}
-        \item \textbf{LED Control:} A toggle switch to control the onboard LED (GPIO 48).
-        \item \textbf{Fan/Pump Control:} A secondary toggle for the high-power actuator (GPIO 2 or Pump).
-    \end{itemize}
-    
-    \item \textbf{Real-time Status:}
-    \begin{itemize}
-        \item \textbf{Sensor Readings:} Live updates of temperature, humidity, and light levels.
-        \item \textbf{Connection Status:} Indicators for WiFi signal strength and Cloud connectivity.
-    \end{itemize}
-    \end{itemize}
+    \item \textbf{Device Control Panel:} LED (GPIO 48) and Pump/Fan (GPIO 2) toggles.
+    \item \textbf{Real-time Status:} Temperature, humidity, light level, WiFi/cloud indicators.
+    \item \textbf{Cloud Sync State:} MQTT connection badge and last publish timestamp.
 \end{enumerate}
 
 \begin{figure}[H]
     \centering
-    % TODO: Replace with actual screenshot of the Web Interface
-    \fbox{\parbox{0.8\textwidth}{\centering
-        \vspace{2cm}
-        \textit{[Insert screenshot of the Embedded Web Server Interface here]}\\
-        \textit{Showing LED toggle buttons and real-time sensor data}\\
-        \vspace{2cm}
-    }}
-    \caption{Embedded Web Server interface showing control buttons and sensor status.}
-    \label{fig:web_interface}
+    % TODO: Replace placeholder image paths with real screenshots
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{assets/ui_home_placeholder.png}
+        \caption*{Home — overview + quick toggles}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{assets/ui_devices_placeholder.png}
+        \caption*{Devices — LED/Pump controls + live metrics}
+    \end{minipage}
+
+    \vspace{0.5cm}
+
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{assets/ui_info_placeholder.png}
+        \caption*{Info — device ID, firmware, IP, uptime}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{assets/ui_settings_placeholder.png}
+        \caption*{Settings — WiFi credentials, MQTT token, publish interval}
+    \end{minipage}
+    \caption{Placeholders for UI screens: Home, Devices, Info, Settings.}
+    \label{fig:web_ui_screens}
 \end{figure}
 
 \subsection{Web Communication Protocols}
@@ -110,7 +142,10 @@ The device connects to the local WiFi network in Station (STA) mode. We implemen
 \end{enumerate}
 
 Crucially, the reconnection logic runs in a low-priority background task to avoid blocking critical sensor processing.
-
+\subsection{Firmware Updates (OTA)}
+The system supports Over-The-Air (OTA) firmware updates, allowing for convenient maintenance without physical access to the device.
+\textbf{Initial Setup:} The first firmware upload must be performed via the USB-C interface to install the bootloader and the initial application containing the OTA logic.
+\textbf{Subsequent Updates:} Once the initial firmware is running, subsequent updates can be performed wirelessly. During this process, the device can remain powered by the external 12V power supply, eliminating the need to reconnect the USB-C cable. This feature is particularly valuable for deployed devices where the USB port may be inaccessible.
 \subsection{Data Publishing to CoreIOT}
 
 We utilize the MQTT protocol to publish sensor telemetry to the CoreIOT server (\texttt{app.coreiot.io}). The publishing logic is encapsulated in the \texttt{CORE\_IOT\_task}, which aggregates data from the shared sensor queue and transmits it securely.
@@ -148,6 +183,8 @@ Building upon the initial setup described in Chapter 1, we enhanced the cloud in
     \item \textbf{Data Buffering:} Sensor readings are buffered in the FreeRTOS queue, ensuring that the latest valid reading is always available for publishing, even if the sensor task is temporarily busy.
     \item \textbf{Connection Resilience:} The system automatically handles MQTT broker disconnections without losing state. It attempts to reconnect to the cloud independently of the WiFi connection status.
     \item \textbf{Traffic Optimization:} Telemetry is published at a fixed interval (10 seconds) rather than on every sensor change, reducing bandwidth usage and complying with CoreIOT rate limits.
+    \item \textbf{Bi-directional Control via RPC:} RPC callbacks (\texttt{setFanStatus}, \texttt{setLedEnabled}, \texttt{setWaterPumpStatus}) apply cloud commands directly to actuators and mirror state back with getter RPCs to keep dashboard toggles in sync.
+    \item \textbf{Network Health Telemetry:} WiFi RSSI and derived quality percentage are published so the dashboard can surface link quality for troubleshooting.
 \end{itemize}
 
 This dual-interface approach—local Web Server for low-latency control and CoreIOT Cloud for historical analysis—provides a comprehensive user experience that combines the best aspects of edge and cloud computing.
