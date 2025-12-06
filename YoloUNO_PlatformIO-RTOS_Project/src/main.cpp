@@ -49,7 +49,8 @@ void setup()
   xTaskCreate(sensor_water_pump_task, "WaterPump", 3072, NULL, 2, NULL);  // Auto irrigation
   xTaskCreate(CORE_IOT_task, "CoreIOT", 4096, NULL, 2, NULL);
 
-  //xTaskCreate( tiny_ml_task, "Tiny ML Task" ,2048  ,NULL  ,3 , NULL);
+  xTaskCreate(tiny_ml_task, "TinyML", 8192, NULL, 2, NULL);
+
   Serial.println("[Setup] Complete\n");
 }
 
@@ -58,16 +59,14 @@ void loop()
   // Keep webserver running
   Webserver_reconnect();
   
-  // Check WiFi status periodically
+  // Check WiFi status periodically (always check to ensure AP is running)
   static unsigned long lastWifiCheck = 0;
   if (millis() - lastWifiCheck > 30000) {  // Every 30 seconds
     lastWifiCheck = millis();
     
-    if (check_info_File(1)) {  // If we have credentials
-      if (WiFi.status() != WL_CONNECTED) {
-        Wifi_reconnect();
-      }
-    }
+    // Always call Wifi_reconnect to ensure AP is running
+    // It will also try STA reconnect if credentials exist
+    Wifi_reconnect();
   }
   
   delay(10);

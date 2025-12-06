@@ -1,86 +1,110 @@
-// #include "tinyml.h"
 
-// // Globals
-// namespace
-// {
-//     tflite::ErrorReporter* error_reporter = nullptr;
-//     const tflite::Model* model = nullptr;
-//     tflite::MicroInterpreter* interpreter = nullptr;
-//     TfLiteTensor* input = nullptr;
-//     TfLiteTensor* output = nullptr;
+#include "tinyml.h"
 
-//     constexpr int kTensorArenaSize = 20 * 1024;    // ESP32 has enough RAM
-//     uint8_t tensor_arena[kTensorArenaSize];
-// }
+// Globals
+namespace
+{
+    tflite::ErrorReporter* error_reporter = nullptr;
+    const tflite::Model* model = nullptr;
+    tflite::MicroInterpreter* interpreter = nullptr;
+    TfLiteTensor* input = nullptr;
+    TfLiteTensor* output = nullptr;
 
-// void setupTinyML()
-// {
-//     Serial.println("[TinyML] Initializing...");
+    constexpr int kTensorArenaSize = 20 * 1024;    // ESP32 has enough RAM
+    uint8_t tensor_arena[kTensorArenaSize];
+}
 
-//     static tflite::MicroErrorReporter micro_error_reporter;
-//     error_reporter = &micro_error_reporter;
+void setupTinyML()
+{
+    Serial.println("[TinyML] Initializing...");
 
-//     model = tflite::GetModel(tiny_ml_model);
-//     if (model->version() != TFLITE_SCHEMA_VERSION)
-//     {
-//         error_reporter->Report("Model schema mismatch!");
-//         return;
-//     }
+    static tflite::MicroErrorReporter micro_error_reporter;
+    error_reporter = &micro_error_reporter;
 
-//     static tflite::AllOpsResolver resolver;
+    model = tflite::GetModel(tiny_ml_model);
+    if (model->version() != TFLITE_SCHEMA_VERSION)
+    {
+        error_reporter->Report("Model schema mismatch!");
+        return;
+    }
 
-//     static tflite::MicroInterpreter static_interpreter(
-//         model, resolver, tensor_arena, kTensorArenaSize, error_reporter);
+    static tflite::AllOpsResolver resolver;
 
-//     interpreter = &static_interpreter;
+    static tflite::MicroInterpreter static_interpreter(
+        model, resolver, tensor_arena, kTensorArenaSize, error_reporter);
 
-//     if (interpreter->AllocateTensors() != kTfLiteOk)
-//     {
-//         error_reporter->Report("AllocateTensors() failed!");
-//         return;
-//     }
+    interpreter = &static_interpreter;
 
-//     input = interpreter->input(0);
-//     output = interpreter->output(0);
+    if (interpreter->AllocateTensors() != kTfLiteOk)
+    {
+        error_reporter->Report("AllocateTensors() failed!");
+        return;
+    }
 
-//     Serial.println("[TinyML] Model loaded.");
-//     Serial.printf("[TinyML] Input size = %d floats\n", input->bytes / 4);
-// }
+    input = interpreter->input(0);
+    output = interpreter->output(0);
+
+    Serial.println("[TinyML] Model loaded.");
+    Serial.printf("[TinyML] Input size = %d floats\n", input->bytes / 4);
+}
 
 
-// void tiny_ml_task(void* pvParameters)
-// {
-//     setupTinyML();
+void tiny_ml_task(void* pvParameters)
+{
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    setupTinyML();
+    
+    if (interpreter == nullptr || input == nullptr || output == nullptr)
+    {
+        Serial.println("[TinyML] Model failed to load, task exiting.");
+        vTaskDelete(NULL);
+        return;
+    }
 
-//     SensorData_t sensorData = {0};
+    SensorData_t sensorData = {0};
 
-//     while (1)
-//     {
-//         if (xSensorDataQueue != NULL)
-//         {
-//             xQueuePeek(xSensorDataQueue, &sensorData, pdMS_TO_TICKS(100));
-//         }
+    while (1)
+    {
+        // Thread-safe read of sensor data
+        if (!getSensorData(&sensorData))
+        {
+            Serial.println("[TinyML] Failed to get sensor data");
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            continue;
+        }
 
-//         // ------------------------------
-//         // Fill input: 4 floats
-//         // Order MUST MATCH training data:
-//         // [ temperature, humidity, light, moisture ]
-//         // ------------------------------
-//         input->data.f[0] = sensorData.temperature;
-//         input->data.f[1] = sensorData.humidity;
-//         input->data.f[2] = sensorData.light_level;
-//         input->data.f[3] = sensorData.moisture_level;
+        // Validate sensor data before inference
+        if (sensorData.temperature <= 0 && sensorData.humidity <= 0)
+        {
+            // No valid data yet, skip inference
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            continue;
+        }
 
-//         if (interpreter->Invoke() != kTfLiteOk)
-//         {
-//             Serial.println("[TinyML] Invoke failed!");
-//             continue;
-//         }
 
-//         float y = output->data.f[0];
+        input->data.f[0] = sensorData.temperature;
+        input->data.f[1] = sensorData.humidity;
+        input->data.f[2] = sensorData.light_level;
+        input->data.f[3] = sensorData.moisture_level;
 
-//         Serial.printf("[TinyML] Output = %.3f\n", y);
+        if (interpreter->Invoke() != kTfLiteOk)
+        {
+            Serial.println("[TinyML] Invoke failed!");
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            continue;
+        }
 
-//         vTaskDelay(pdMS_TO_TICKS(5000));
-//     }
-// }
+        float y = output->data.f[0];
+
+        // Thread-safe Serial output (prevents interleaving with WiFi task)
+        if (xSerialMutex != NULL && xSemaphoreTake(xSerialMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            Serial.printf("[TinyML] Input: T=%.1f H=%.1f L=%.1f M=%.1f => Output=%.3f\n",
+                          sensorData.temperature, sensorData.humidity,
+                          sensorData.light_level, sensorData.moisture_level, y);
+            xSemaphoreGive(xSerialMutex);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+

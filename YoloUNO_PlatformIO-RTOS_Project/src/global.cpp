@@ -1,43 +1,32 @@
 #include "global.h"
 
 // ==================== WIFI CONFIG ====================
-String WIFI_SSID = "Thinhkhong";  
-String WIFI_PASS = "conheocon";
+
 
 // ==================== COREIOT CONFIG ====================
 String CORE_IOT_TOKEN = "";
 String CORE_IOT_SERVER = "app.coreiot.io";
 int CORE_IOT_PORT = 1883;
 
-// ==================== LEGACY VARIABLES ====================
-String ssid = "ESP32-YOUR NETWORK HERE!!!";
-String password = "12345678";
-String wifi_ssid = "";
-String wifi_password = "";
-boolean isWifiConnected = false;
-bool glob_ntp_synced = false;
-
-// ==================== GLOBAL STATE ====================
 volatile SystemState_t currentSystemState = STATE_NORMAL;
 static SystemState_t lastReportedState = STATE_NORMAL;
 
-// ==================== RTOS QUEUES ====================
 QueueHandle_t xSensorDataQueue = NULL;
 
 // ==================== RTOS SEMAPHORES ====================
 SemaphoreHandle_t xBinarySemaphoreInternet = NULL;
 SemaphoreHandle_t xI2CMutex = NULL;
 SemaphoreHandle_t xStateMutex = NULL;
-SemaphoreHandle_t xQueueMutex = NULL;  // NEW: Mutex for queue access
+SemaphoreHandle_t xQueueMutex = NULL;  // Mutex for queue access
+SemaphoreHandle_t xSerialMutex = NULL; // Mutex for Serial output
 
 SemaphoreHandle_t xSemaphoreNormal = NULL;
 SemaphoreHandle_t xSemaphoreWarning = NULL;
 SemaphoreHandle_t xSemaphoreCritical = NULL;
 SemaphoreHandle_t xSemaphoreFireAlert = NULL;
 
-// ==================== INITIALIZATION ====================
+
 void initRTOSPrimitives() {
-    // Create Queue for sensor data (1 slot with overwrite)
     xSensorDataQueue = xQueueCreate(1, sizeof(SensorData_t));
     if (xSensorDataQueue == NULL) {
         Serial.println("[RTOS] ERROR: Queue creation failed!");
@@ -47,7 +36,8 @@ void initRTOSPrimitives() {
     xBinarySemaphoreInternet = xSemaphoreCreateBinary();
     xI2CMutex = xSemaphoreCreateMutex();
     xStateMutex = xSemaphoreCreateMutex();
-    xQueueMutex = xSemaphoreCreateMutex();  // NEW: Create queue mutex
+    xQueueMutex = xSemaphoreCreateMutex();
+    xSerialMutex = xSemaphoreCreateMutex(); 
     
     xSemaphoreNormal = xSemaphoreCreateBinary();
     xSemaphoreWarning = xSemaphoreCreateBinary();
@@ -75,8 +65,6 @@ void initRTOSPrimitives() {
     Serial.println("[RTOS] Primitives initialized OK");
 }
 
-// ==================== THREAD-SAFE SENSOR FIELD UPDATES ====================
-// Each function uses mutex to safely update ONE field without race conditions
 
 void updateSensorField_Light(float value) {
     if (xQueueMutex == NULL || xSensorDataQueue == NULL) return;
@@ -193,8 +181,6 @@ bool getSensorData(SensorData_t *data) {
     return success;
 }
 
-// ==================== HELPER FUNCTIONS ====================
-
 /**
  * Evaluate system state based on sensor data
  */
@@ -203,11 +189,16 @@ SystemState_t evaluateSystemState(float temp, float humidity, bool flame) {
         return STATE_FIRE_ALERT;
     }
     
-    if (temp > 35.0 || humidity < 30.0) {
+    // Critical: Too hot OR too dry
+    if (temp > TEMP_CRITICAL || humidity < HUMIDITY_CRITICAL_LOW) {
         return STATE_CRITICAL;
     }
     
-    if (temp < 20.0 || temp > 32.0 || humidity < 40.0 || humidity > 75.0) {
+
+    // Warning: Outside comfortable range
+    if (temp < TEMP_NORMAL_MIN || temp > TEMP_HOT || 
+        humidity < HUMIDITY_WARNING_LOW || humidity > HUMIDITY_WARNING_HIGH) {
+
         return STATE_WARNING;
     }
     
@@ -218,12 +209,15 @@ SystemState_t evaluateSystemState(float temp, float humidity, bool flame) {
  * Get warning reason string based on current readings
  */
 const char* getWarningReason(float temp, float humidity) {
-    if (temp > 35.0) return "Too Hot";
-    if (humidity < 30.0) return "Too Dry";
-    if (temp > 32.0) return "Hot";
-    if (temp < 20.0) return "Cold";
-    if (humidity < 40.0) return "Dry";
-    if (humidity > 75.0) return "Too Humid";
+
+    if (temp > TEMP_CRITICAL) return "Too Hot";
+    if (humidity < HUMIDITY_CRITICAL_LOW) return "Too Dry";
+    if (temp > TEMP_HOT) return "Hot";
+    if (temp < TEMP_COLD) return "Cold";
+    if (temp < TEMP_NORMAL_MIN) return "Cool";
+    if (humidity < HUMIDITY_WARNING_LOW) return "Dry";
+    if (humidity > HUMIDITY_WARNING_HIGH) return "Too Humid";
+
     return "Check Environment";
 }
 
@@ -283,8 +277,6 @@ SystemState_t getSystemState() {
     return state;
 }
 
-// ==================== LEGACY FUNCTIONS (for OLED task) ====================
-
 /**
  * Send sensor data to queue (OLED task uses this for temp/humidity)
  * Now uses mutex protection
@@ -301,8 +293,6 @@ void sendSensorData(SensorData_t *data) {
     if (data->humidity > 0) {
         updateSensorField_Humidity(data->humidity);
     }
-    // NOTE: Do NOT update neoled_enabled here - it's controlled by web interface
-    // updateSensorField_NeoLed() is called only from task_handler when user toggles
 }
 
 /**

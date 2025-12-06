@@ -7,8 +7,6 @@
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 
-// ==================== SENSOR DATA STRUCTURE ====================
-// Thay thế global variables bằng struct truyền qua Queue
 typedef struct {
     float temperature;
     float humidity;
@@ -20,13 +18,27 @@ typedef struct {
     bool water_pump_enabled;
 } SensorData_t;
 
-// ==================== SYSTEM STATE ENUM ====================
 typedef enum {
     STATE_NORMAL = 0,      // Mọi thứ bình thường
     STATE_WARNING,         // Cảnh báo (temp cao hoặc humidity thấp)
     STATE_CRITICAL,        // Nguy hiểm (temp rất cao hoặc humidity rất thấp)
     STATE_FIRE_ALERT       // Phát hiện cháy - ưu tiên cao nhất
 } SystemState_t;
+
+// ==================== CENTRALIZED THRESHOLDS ====================
+// Temperature thresholds (Celsius)
+#define TEMP_COLD           15.0f   // Below this = Cold
+#define TEMP_NORMAL_MIN     15.0f   // Comfortable range start (Matches Report Normal 15-33)
+#define TEMP_NORMAL_MAX     30.0f   // Comfortable range end
+#define TEMP_HOT            33.0f   // Above this = Hot (Warning)
+#define TEMP_CRITICAL       40.0f   // Above this = Critical
+
+// Humidity thresholds (%)
+#define HUMIDITY_CRITICAL_LOW   30.0f   // Below this = Too Dry (Critical)
+#define HUMIDITY_WARNING_LOW    40.0f   // Below this = Dry (Warning)
+#define HUMIDITY_NORMAL_MIN     50.0f   // Comfortable range start
+#define HUMIDITY_NORMAL_MAX     70.0f   // Comfortable range end (Ideal)
+#define HUMIDITY_WARNING_HIGH   80.0f   // Above this = Too Humid (Warning)
 
 // ==================== WIFI & COREIOT CONFIG ====================
 extern String WIFI_SSID;
@@ -35,11 +47,6 @@ extern String CORE_IOT_TOKEN;
 extern String CORE_IOT_SERVER;
 extern int CORE_IOT_PORT;
 
-// ==================== LEGACY VARIABLES (kept for compatibility) ====================
-extern String ssid;
-extern String password;
-extern String wifi_ssid;
-extern String wifi_password;
 extern boolean isWifiConnected;
 extern bool glob_ntp_synced;
 
@@ -56,6 +63,9 @@ extern SemaphoreHandle_t xI2CMutex;
 
 // Mutex cho Queue access (CRITICAL - prevents race conditions)
 extern SemaphoreHandle_t xQueueMutex;
+
+// Mutex cho Serial output (prevents interleaving)
+extern SemaphoreHandle_t xSerialMutex;
 
 // Binary Semaphores cho System States
 extern SemaphoreHandle_t xSemaphoreNormal;
