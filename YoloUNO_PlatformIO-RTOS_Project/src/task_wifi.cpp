@@ -54,11 +54,25 @@ static void ensureAP()
         delay(200);
     }
     
+    // Always check and update SSID to ensure it matches SSID_AP
+    // This prevents using old cached SSID from NVS
+    String currentSSID = WiFi.softAPSSID();
+    String expectedSSID = String(SSID_AP);
+    
     if (isAPRunning()) {
         IPAddress currentIP = WiFi.softAPIP();
+        // Check if IP is correct AND SSID matches
         if (currentIP[0] == 192 && currentIP[1] == 168 && currentIP[2] == 4 && currentIP[3] == 1) {
-            apInitialized = true;
-            return;
+            if (currentSSID == expectedSSID) {
+                apInitialized = true;
+                return;
+            } else {
+                // SSID doesn't match, need to restart AP with correct SSID
+                Serial.printf("[WiFi] SSID mismatch: current='%s', expected='%s', restarting AP...\n", 
+                              currentSSID.c_str(), expectedSSID.c_str());
+                WiFi.softAPdisconnect(true);
+                delay(200);
+            }
         }
     }
     
@@ -109,16 +123,15 @@ void startAP()
         WiFi.mode(WIFI_AP_STA);
         delay(200);
     } else if (currentMode == WIFI_AP_STA) {
-        if (isAPRunning()) {
-            Serial.println("[WiFi] AP already running in AP+STA mode");
-            apInitialized = true;
-            return;
-        }
+        // Don't return early - always check SSID in ensureAP()
+        // This ensures we use the correct SSID even if AP is already running
     }
     
+    // Disable persistent storage to prevent caching old SSID
     WiFi.setAutoReconnect(false);
     WiFi.persistent(false);
     
+    // Always call ensureAP to verify and update SSID if needed
     ensureAP();
 }
 
