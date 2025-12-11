@@ -1,47 +1,77 @@
-# Espressif 32: development platform for [PlatformIO](https://platformio.org)
+# YoloUNO DHT20 Project
 
-[![Build Status](https://github.com/platformio/platform-espressif32/workflows/Examples/badge.svg)](https://github.com/platformio/platform-espressif32/actions)
+## Mô tả
+Đây là phiên bản sử dụng **DHT20** (I2C sensor) thay vì DHT11.
 
-ESP32 is a series of low-cost, low-power system on a chip microcontrollers with integrated Wi-Fi and Bluetooth. ESP32 integrates an antenna switch, RF balun, power amplifier, low-noise receive amplifier, filters, and power management modules.
+## Sự khác biệt so với project DHT11 gốc
 
-* [Home](https://registry.platformio.org/platforms/platformio/espressif32) (home page in the PlatformIO Registry)
-* [Documentation](https://docs.platformio.org/page/platforms/espressif32.html) (advanced usage, packages, boards, frameworks, etc.)
+| Feature | DHT11 (Original) | DHT20 (This project) |
+|---------|------------------|----------------------|
+| Giao thức | 1-Wire (GPIO 6) | I2C (Address 0x38) |
+| Độ chính xác nhiệt độ | ±2°C | ±0.5°C |
+| Độ chính xác độ ẩm | ±5% | ±3% |
+| Library | DHT sensor library | DHT20 library |
+| Mutex I2C | Chỉ cho OLED | Cho cả DHT20 + OLED |
 
-# Usage
+## Kết nối phần cứng
 
-1. [Install PlatformIO](https://platformio.org)
-2. Create PlatformIO project and configure a platform option in [platformio.ini](https://docs.platformio.org/page/projectconf.html) file:
+### DHT20 Sensor (I2C)
+- **VDD** → 3.3V
+- **SDA** → GPIO 8 (I2C SDA)
+- **GND** → GND
+- **SCL** → GPIO 9 (I2C SCL)
 
-## Stable version
+### OLED SSD1306 (I2C)
+- **VCC** → 3.3V
+- **GND** → GND
+- **SDA** → GPIO 8 (I2C SDA)
+- **SCL** → GPIO 9 (I2C SCL)
 
-See `platform` [documentation](https://docs.platformio.org/en/latest/projectconf/sections/env/options/platform/platform.html#projectconf-env-platform) for details.
+> **Lưu ý**: DHT20 và OLED SSD1306 đều dùng chung bus I2C nhưng có địa chỉ khác nhau:
+> - DHT20: 0x38
+> - OLED: 0x3C
 
-```ini
-[env:stable]
-; recommended to pin to a version, see https://github.com/platformio/platform-espressif32/releases
-; platform = espressif32 @ ^6.0.1
-platform = espressif32
-board = yolo_uno
-framework = arduino
-monitor_speed = 115200
+## Build và Upload
 
-build_flags =
-    -D ARDUINO_USB_MODE=1
-    -D ARDUINO_USB_CDC_ON_BOOT=1
+```bash
+# Build project
+pio run
 
-## Development version
+# Upload firmware
+pio run -t upload
 
-```ini
-[env:development]
-platform = https://github.com/platformio/platform-espressif32.git
-board = yolo_uno
-framework = arduino
-monitor_speed = 115200
-build_flags =
-    -D ARDUINO_USB_MODE=1
-    -D ARDUINO_USB_CDC_ON_BOOT=1
+# Monitor Serial
+pio device monitor
+```
 
-    
-# Configuration
+## Cấu trúc thư mục
 
-Please navigate to [documentation](https://docs.platformio.org/page/platforms/espressif32.html).
+```
+YoloUNO_DHT20_Lab2/
+├── src/
+│   ├── main.cpp
+│   ├── temp_humi_oled.cpp    # DHT20 + OLED display task
+│   └── ...
+├── include/
+│   ├── temp_humi_oled.h      # DHT20 header (thay vì DHT11)
+│   └── ...
+├── lib/
+│   ├── DHT20/                # DHT20 I2C library
+│   └── ...
+└── platformio.ini
+```
+
+## Semaphore I2C
+
+Project sử dụng `xI2CMutex` để bảo vệ bus I2C khi:
+1. Đọc dữ liệu từ DHT20
+2. Ghi dữ liệu lên OLED SSD1306
+
+```cpp
+if (xI2CMutex != NULL && xSemaphoreTake(xI2CMutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+    // Truy cập I2C an toàn
+    int status = dht20.read();
+    // ...
+    xSemaphoreGive(xI2CMutex);
+}
+```

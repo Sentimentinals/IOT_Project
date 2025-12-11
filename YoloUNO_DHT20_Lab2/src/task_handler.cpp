@@ -1,4 +1,5 @@
 #include <task_handler.h>
+#include "sensor_water_pump.h"
 
 // Handle incoming WebSocket messages (device control, WiFi/CoreIOT config)
 void handleWebSocketMessage(String message)
@@ -54,6 +55,36 @@ void handleWebSocketMessage(String message)
         Save_coreiot_File(token, server, port);
 
         String msg = "{\"status\":\"ok\",\"page\":\"coreiot_saved\"}";
+        ws.textAll(msg);
+    }
+    else if (doc["page"] == "neoled")
+    {
+        bool enabled = doc["value"]["enabled"].as<bool>();
+        
+        updateSensorField_NeoLed(enabled);
+        
+        String msg = "{\"status\":\"ok\",\"page\":\"neoled\",\"enabled\":" + String(enabled ? "true" : "false") + "}";
+        ws.textAll(msg);
+    }
+    else if (doc["page"] == "fan_control")
+    {
+        bool enabled = doc["value"]["enabled"].as<bool>();
+        
+        pinMode(2, OUTPUT);
+        digitalWrite(2, enabled ? HIGH : LOW);
+        
+        updateSensorField_Fan(enabled);
+        
+        String msg = "{\"status\":\"ok\",\"page\":\"fan_control\",\"enabled\":" + String(enabled ? "true" : "false") + "}";
+        ws.textAll(msg);
+    }
+    else if (doc["page"] == "pump_control")
+    {
+        bool enabled = doc["value"]["enabled"].as<bool>();
+        
+        setWaterPumpManual(enabled);
+        
+        String msg = "{\"status\":\"ok\",\"page\":\"pump_control\",\"enabled\":" + String(enabled ? "true" : "false") + ",\"mode\":\"manual\"}";
         ws.textAll(msg);
     }
 }
