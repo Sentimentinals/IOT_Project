@@ -151,6 +151,20 @@ function onMessage(event) {
             return;
         }
         
+        // Handle device control responses (from hand gesture, etc.)
+        if (data.page === "fan_control" && data.enabled !== undefined) {
+            updateFanButton(data.enabled);
+            return;
+        }
+        if (data.page === "neoled" && data.enabled !== undefined) {
+            updateNeoLedButton(data.enabled);
+            return;
+        }
+        if (data.page === "pump_control" && data.enabled !== undefined) {
+            updatePumpButton(data.enabled, data.mode === "auto");
+            return;
+        }
+        
         if (data.type === "sensor") {
             const tempEl = document.getElementById("temp");
             const humEl = document.getElementById("hum");
@@ -1049,7 +1063,7 @@ function toggleGestureStream() {
         let serverIP = serverInput.value.trim();
         
         if (!serverIP) {
-            alert('⚠️ Please enter the Python server IP address!\n\nExample: 192.168.1.100:5000');
+            alert(' Please enter the Python server IP address!\n\nExample: 192.168.1.100:5000');
             return;
         }
         
@@ -1093,7 +1107,7 @@ function toggleGestureStream() {
         })
         .catch(err => {
             console.error('Failed to start gesture server:', err);
-            alert('❌ Cannot connect to gesture server!\n\nMake sure:\n1. Python server is running\n2. IP address is correct\n3. Both devices are on same network');
+            alert('Cannot connect to gesture server!\n\nMake sure:\n1. Python server is running\n2. IP address is correct\n3. Both devices are on same network');
         });
         
     } else {
@@ -1153,10 +1167,10 @@ function fetchGestureStatus(serverIP) {
             
             if (mqttEl) {
                 if (data.mqtt_connected) {
-                    mqttEl.textContent = 'MQTT: Connected ✅';
+                    mqttEl.textContent = 'MQTT: Connected';
                     mqttEl.className = 'gesture-mqtt-status connected';
                 } else {
-                    mqttEl.textContent = 'MQTT: Disconnected ❌';
+                    mqttEl.textContent = 'MQTT: Disconnected';
                     mqttEl.className = 'gesture-mqtt-status disconnected';
                 }
             }

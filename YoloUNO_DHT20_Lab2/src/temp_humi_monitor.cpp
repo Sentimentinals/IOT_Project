@@ -1,3 +1,6 @@
+// DISABLED: Using temp_humi_oled.cpp instead (has OLED + DHT20 combined)
+#if 0
+
 #include "temp_humi_monitor.h"
 #include "task_webserver.h"
 
@@ -50,4 +53,6 @@ void temp_humi_monitor(void *pvParameters){
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
+
+#endif
 

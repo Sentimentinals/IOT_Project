@@ -4,3 +4,5 @@ numpy
 paho-mqtt
 flask
 flask-cors
+websocket-client
+requests

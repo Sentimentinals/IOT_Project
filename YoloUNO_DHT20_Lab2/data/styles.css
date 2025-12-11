@@ -2103,17 +2103,22 @@ body:not(.emergency-alert) .metric-value {
   align-items: center;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 12px;
-  padding: 0 15px;
   border: 1px solid var(--glass-border);
+  transition: border-color 0.3s ease;
+}
+
+.gesture-config .input-group:focus-within {
+  border-color: var(--primary-cyan);
 }
 
 .gesture-config .input-group input {
   flex: 1;
   background: transparent;
   border: none;
-  padding: 14px 10px;
+  padding: 14px 15px;
   color: var(--text-primary);
   font-size: 0.95rem;
+  border-radius: 12px;
 }
 
 .gesture-config .input-group input::placeholder {

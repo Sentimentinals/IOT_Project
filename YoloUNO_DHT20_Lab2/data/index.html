@@ -293,15 +293,14 @@
 
     <!-- GESTURE CONTROL SECTION -->
     <div class="gesture-section">
-      <h2 class="section-title">🖐️ Hand Gesture Control</h2>
+      <h2 class="section-title">Hand Gesture Control</h2>
       <p class="section-description">Control devices using hand gestures via webcam</p>
       
       <div class="gesture-container">
         <!-- Server Connection -->
         <div class="gesture-config">
           <div class="input-group">
-            <span class="input-icon">🖥️</span>
-            <input type="text" id="gestureServerIP" placeholder="Python Server IP (e.g., 192.168.1.100:5000)" value="">
+            <input type="text" id="gestureServerIP" placeholder="Python Server IP:Port (e.g., 192.168.50.193:5000)" value="">
           </div>
           <button class="gesture-connect-btn" id="gestureConnectBtn" onclick="toggleGestureStream()">
             📷 Start Camera
@@ -325,11 +324,9 @@
         <!-- Instructions -->
         <div class="gesture-instructions">
           <div class="gesture-instruction">
-            <span class="gesture-icon">✋</span>
             <span class="gesture-text">Open Palm = FAN ON</span>
           </div>
           <div class="gesture-instruction">
-            <span class="gesture-icon">✊</span>
             <span class="gesture-text">Fist = FAN OFF</span>
           </div>
         </div>
