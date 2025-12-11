@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CoreIOT Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <!-- CoreIOT Logo -->
+    <div class="logo-container">
+      <img src="coreiot_logo.png" alt="CORE IOT" class="logo-img">
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-item active" onclick="showSection('home', event)">
+      <span>🏠</span> <span class="nav-text">Home</span>
+    </div>
+    <div class="nav-item" onclick="showSection('device', event)">
+      <span>⚡</span> <span class="nav-text">Devices</span>
+    </div>
+    <div class="nav-item" onclick="showSection('info', event)">
+      <span>ℹ️</span> <span class="nav-text">Info</span>
+    </div>
+    <div class="nav-item" onclick="showSection('settings', event)">
+      <span>⚙️</span> <span class="nav-text">Settings</span>
+    </div>
+
+    <!-- Cloud Sync Status -->
+    <div class="connection-status">
+      <div class="status-dot pulse"></div>
+      <span class="status-text">Cloud Sync</span>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+
+    <!-- HOME SECTION -->
+    <div id="home" class="section" style="display:block;">
+      <header>
+        <div>
+          <h1>Environment Dashboard</h1>
+          <p>Real-time monitoring and control center</p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <!-- Notification Bell -->
+          <div class="notification-bell-container">
+            <button class="notification-bell" onclick="toggleNotificationPanel()" title="Notifications">
+              <span class="bell-icon">🔔</span>
+              <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            </button>
+
+            <!-- Notification Panel (Dropdown) -->
+            <div class="notification-panel" id="notificationPanel" style="display: none;">
+              <div class="notification-panel-header">
+                <h3>Notifications</h3>
+                <button class="clear-all-btn" onclick="clearAllNotifications()">Clear All</button>
+              </div>
+              <div class="notification-list" id="notificationList">
+                <div class="empty-notifications">No notifications yet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- SYSTEM OVERVIEW -->
+    <div class="system-overview">
+      <div class="overview-metric" style="--card-index: 0">
+        <div class="metric-icon pulse-icon">📡</div>
+        <div class="metric-content">
+          <div class="metric-value" id="totalDevices">5</div>
+          <div class="metric-label">Active Devices</div>
+        </div>
+      </div>
+
+      <div class="overview-metric" style="--card-index: 1">
+        <div class="metric-icon">🛡️</div>
+        <div class="metric-content">
+          <div class="metric-value" id="alertsToday">0</div>
+          <div class="metric-label">Alerts Today</div>
+        </div>
+      </div>
+
+      <div class="overview-metric" style="--card-index: 2">
+        <div class="metric-icon">💚</div>
+        <div class="metric-content">
+          <div class="metric-value" id="systemHealth">98%</div>
+          <div class="metric-label">System Health</div>
+        </div>
+      </div>
+
+      <!-- FIXED: Cloud Status card (clickable) -->
+      <div class="overview-metric coreiot-link" style="--card-index: 3; cursor: pointer;"
+        onclick="window.open('https://app.coreiot.io', '_blank')" title="Open CoreIOT Dashboard">
+        <div class="metric-icon">☁️</div>
+        <div class="metric-content">
+          <div class="metric-value" style="font-size: 1.3rem;">Cloud STA</div>
+          <div class="metric-label">CoreIOT Dashboard →</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENVIRONMENT STATUS BADGE -->
+    <div class="environment-status">
+      <span class="status-badge status-optimal" id="envStatus">
+        <span class="status-dot"></span>
+        Optimal Environment
+      </span>
+    </div>
+
+    <!-- HERO + SENSOR GRID -->
+    <div class="dashboard-grid">
+      <!-- HERO CARD: Temperature & Humidity -->
+      <div class="hero-card" style="--card-index: 4">
+        <h2>🌡️ Climate Monitor</h2>
+        <div class="hero-readings">
+          <div class="hero-metric">
+            <div class="hero-value">
+              <span id="temp" class="value">--</span>
+              <span class="unit">°C</span>
+            </div>
+            <div class="metric-label">Temperature</div>
+            <div class="status-badge" id="tempStatus">--</div>
+          </div>
+          <div class="hero-divider"></div>
+          <div class="hero-metric">
+            <div class="hero-value">
+              <span id="hum" class="value">--</span>
+              <span class="unit">%</span>
+            </div>
+            <div class="metric-label">Humidity</div>
+            <div class="status-badge" id="humStatus">--</div>
+          </div>
+        </div>
+        <div class="sparkline-placeholder">
+          <span style="opacity: 0.5; font-size: 0.85em;">📈 24h trend (coming soon)</span>
+        </div>
+        <div class="last-updated">Updated: <span id="lastUpdate">--</span></div>
+      </div>
+
+      <!-- COMPACT SENSOR GRID -->
+      <div class="compact-grid">
+        <div class="compact-card" style="--card-index: 5">
+          <h3>☀️ Light</h3>
+          <div class="compact-value">
+            <span id="light" class="value">--</span>
+            <span class="unit">Lux</span>
+          </div>
+        </div>
+
+        <div class="compact-card" style="--card-index: 6">
+          <h3>💧 Soil Moisture</h3>
+          <div class="compact-value">
+            <span id="moisture" class="value">--</span>
+            <span class="unit">%</span>
+          </div>
+        </div>
+
+        <div class="compact-card flame-card" id="flameCard" style="--card-index: 7">
+          <h3>🔥 Flame Sensor</h3>
+          <div class="flame-status" id="flame">
+            <span class="flame-icon">✓</span>
+            <span class="flame-text">Safe</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CSV DATA CONTROLS -->
+    <div class="data-controls">
+      <h3>📊 Data Export</h3>
+      <p class="export-description">Export sensor data including temperature, humidity, light, moisture, and system alerts.</p>
+      <div class="csv-stats" id="csvStats">
+        <div class="csv-stat">
+          <span class="stat-label">Records</span>
+          <span class="stat-value" id="csvRecords">--</span>
+        </div>
+        <div class="csv-stat">
+          <span class="stat-label">File Size</span>
+          <span class="stat-value" id="csvSize">--</span>
+        </div>
+        <div class="csv-stat">
+          <span class="stat-label">Status</span>
+          <span class="stat-value" id="csvStatus">Loading...</span>
+        </div>
+      </div>
+      <div class="csv-columns">
+        <span class="column-tag">datetime</span>
+        <span class="column-tag">temperature</span>
+        <span class="column-tag">humidity</span>
+        <span class="column-tag">light_level</span>
+        <span class="column-tag">moisture</span>
+        <span class="column-tag">flame</span>
+        <span class="column-tag">water_pump</span>
+        <span class="column-tag">state</span>
+      </div>
+      <div class="controls-row">
+        <button class="csv-btn download-btn" onclick="downloadCSV()">
+          📥 Download CSV
+        </button>
+        <button class="csv-btn clear-btn" onclick="clearCSV()">
+          🗑️ Clear Data
+        </button>
+      </div>
+    </div>
+    </div>
+    <!-- END HOME SECTION -->
+
+    <!-- DEVICES SECTION -->
+    <div id="device" class="section" style="display:none;">
+    <header>
+      <h1>Device Control</h1>
+      <p>Manage and control connected devices</p>
+    </header>
+
+    <!-- MAIN DEVICES (NeoPixel, Fan & Pump) -->
+    <div class="main-devices-grid">
+      <!-- NeoPixel LED Control Card -->
+      <div class="main-device-card neopixel-card">
+        <div class="device-header">
+          <div class="device-icon-large">💡</div>
+          <div class="device-info">
+            <h3>LED NeoPixel</h3>
+            <p class="device-gpio">GPIO 48</p>
+          </div>
+        </div>
+        <div class="device-status">
+          <span class="status-label">Status:</span>
+          <span class="status-value" id="neoLedStatusText">ON</span>
+        </div>
+        <div class="device-mode">
+          <span class="mode-badge">Indicator</span>
+        </div>
+        <button id="neoLedBtn" class="device-toggle-btn on" onclick="toggleNeoLED()">
+          <span class="btn-icon">⏻</span>
+          <span class="btn-text">ON</span>
+        </button>
+        <p class="device-hint">Humidity color indicator</p>
+      </div>
+
+      <!-- Fan Control Card -->
+      <div class="main-device-card fan-card">
+        <div class="device-header">
+          <div class="device-icon-large">🌀</div>
+          <div class="device-info">
+            <h3>Cooling Fan</h3>
+            <p class="device-gpio">GPIO 14</p>
+          </div>
+        </div>
+        <div class="device-status">
+          <span class="status-label">Status:</span>
+          <span class="status-value" id="fanStatusText">OFF</span>
+        </div>
+        <div class="device-mode">
+          <span class="mode-badge" id="fanModeBadge">Manual</span>
+        </div>
+        <button id="fanBtn" class="device-toggle-btn off" onclick="toggleFan()">
+          <span class="btn-icon">⏻</span>
+          <span class="btn-text">OFF</span>
+        </button>
+      </div>
+
+      <!-- Water Pump Control Card -->
+      <div class="main-device-card pump-card">
+        <div class="device-header">
+          <div class="device-icon-large">💦</div>
+          <div class="device-info">
+            <h3>Water Pump</h3>
+            <p class="device-gpio">GPIO 38</p>
+          </div>
+        </div>
+        <div class="device-status">
+          <span class="status-label">Status:</span>
+          <span class="status-value" id="pumpStatusText">OFF</span>
+        </div>
+        <div class="device-mode">
+          <span class="mode-badge" id="pumpModeBadge">Auto</span>
+        </div>
+        <button id="pumpBtn" class="device-toggle-btn off" onclick="togglePump()">
+          <span class="btn-icon">⏻</span>
+          <span class="btn-text">OFF</span>
+        </button>
+        <p class="device-hint">Auto: ON &lt;30% | OFF &gt;60%</p>
+      </div>
+    </div>
+
+    <!-- RELAY SECTION -->
+    <div class="relay-section">
+      <h2 class="section-title">⚡ Custom Relays</h2>
+      <div class="device-list" id="relayContainer">
+        <!-- Relays loaded by script.js -->
+      </div>
+    </div>
+
+    <button class="add-relay-btn" onclick="openAddRelayDialog()">
+      ➕
+    </button>
+  </div>
+
+    <!-- INFO SECTION -->
+    <div id="info" class="section" style="display:none;">
+    <header>
+      <h1>Device Information</h1>
+      <p>System and network details</p>
+    </header>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <h3>📟 System Info</h3>
+        <div class="info-row">
+          <span class="info-label">Chip Model:</span>
+          <span class="info-value" id="chipModel">ESP32</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Free RAM:</span>
+          <span class="info-value" id="freeRam">--</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Uptime:</span>
+          <span class="info-value" id="systemUptime">--</span>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <h3>📡 Network</h3>
+        <div class="info-row">
+          <span class="info-label">WiFi SSID:</span>
+          <span class="info-value" id="wifiSSID">--</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">IP Address:</span>
+          <span class="info-value" id="ipAddress">--</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Signal:</span>
+          <span class="info-value" id="wifiSignal">--</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- SETTINGS SECTION -->
+    <div id="settings" class="section settings-section" style="display:none;">
+    
+    <!-- WiFi Settings Card -->
+    <div class="settings-card">
+      <h2>📡 WiFi Settings</h2>
+      <p style="margin-bottom: 20px; opacity: 0.8;">Connect your ESP32 to the home WiFi network</p>
+
+      <form id="wifiForm">
+        <div class="settings-group">
+          <div class="input-group">
+            <span class="input-icon">📶</span>
+            <input type="text" id="ssid" placeholder="WiFi name (SSID)" required>
+          </div>
+
+          <div class="input-group">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="password" placeholder="WiFi password" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-save btn-wifi">
+          📡 Save WiFi & Reboot
+        </button>
+      </form>
+    </div>
+
+    <!-- CoreIOT Settings Card -->
+    <div class="settings-card">
+      <h2>☁️ CoreIOT Settings</h2>
+      <p style="margin-bottom: 20px; opacity: 0.8;">Configure connection to CoreIOT Cloud (optional)</p>
+
+      <form id="coreiotForm">
+        <div class="settings-group">
+          <div class="input-group">
+            <span class="input-icon">🔑</span>
+            <input type="text" id="token" placeholder="Device Access Token">
+          </div>
+
+          <div class="input-group">
+            <span class="input-icon">🌐</span>
+            <input type="text" id="server" placeholder="Server (default: app.coreiot.io)" value="app.coreiot.io">
+          </div>
+
+          <div class="input-group">
+            <span class="input-icon">🔌</span>
+            <input type="number" id="port" placeholder="Port (default: 1883)" value="1883">
+          </div>
+        </div>
+
+        <button type="submit" class="btn-save btn-coreiot">
+          ☁️ Save CoreIOT & Reboot
+        </button>
+      </form>
+    </div>
+
+  </div>
+  <!-- END SETTINGS -->
+
+  </div>
+  <!-- END MAIN CONTENT -->
+
+  <!-- DIALOGS -->
+  <div id="addRelayDialog" class="dialog-overlay" style="display:none;">
+    <div class="dialog fade-in">
+      <h3>🔌 Add New Relay</h3>
+      <p>Enter relay name and GPIO pin</p>
+      <div class="input-field">
+        <input type="text" id="relayName" placeholder="Relay name">
+      </div>
+      <div class="input-field">
+        <input type="number" id="relayGPIO" placeholder="GPIO pin">
+      </div>
+      <div class="dialog-buttons">
+        <button class="confirm" onclick="saveRelay()">Save</button>
+        <button class="cancel" onclick="closeAddRelayDialog()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmDeleteDialog" class="dialog-overlay" style="display:none;">
+    <div class="dialog warning fade-in">
+      <h3>⚠️ Confirm Delete</h3>
+      <p>Are you sure you want to delete this relay?</p>
+      <div class="dialog-buttons">
+        <button class="danger" onclick="confirmDelete()">Delete</button>
+        <button class="cancel" onclick="closeConfirmDelete()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
