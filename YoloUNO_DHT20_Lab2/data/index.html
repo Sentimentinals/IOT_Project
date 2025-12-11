@@ -291,6 +291,51 @@
       </div>
     </div>
 
+    <!-- GESTURE CONTROL SECTION -->
+    <div class="gesture-section">
+      <h2 class="section-title">🖐️ Hand Gesture Control</h2>
+      <p class="section-description">Control devices using hand gestures via webcam</p>
+      
+      <div class="gesture-container">
+        <!-- Server Connection -->
+        <div class="gesture-config">
+          <div class="input-group">
+            <span class="input-icon">🖥️</span>
+            <input type="text" id="gestureServerIP" placeholder="Python Server IP (e.g., 192.168.1.100:5000)" value="">
+          </div>
+          <button class="gesture-connect-btn" id="gestureConnectBtn" onclick="toggleGestureStream()">
+            📷 Start Camera
+          </button>
+        </div>
+        
+        <!-- Video Stream -->
+        <div class="gesture-video-wrapper" id="gestureVideoWrapper" style="display: none;">
+          <img id="gestureVideoFeed" class="gesture-video" src="" alt="Gesture Video Feed">
+          <div class="gesture-overlay">
+            <div class="gesture-status">
+              <span class="gesture-label">Gesture:</span>
+              <span class="gesture-value" id="currentGesture">--</span>
+            </div>
+            <div class="gesture-mqtt-status" id="gestureMqttStatus">
+              MQTT: --
+            </div>
+          </div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="gesture-instructions">
+          <div class="gesture-instruction">
+            <span class="gesture-icon">✋</span>
+            <span class="gesture-text">Open Palm = FAN ON</span>
+          </div>
+          <div class="gesture-instruction">
+            <span class="gesture-icon">✊</span>
+            <span class="gesture-text">Fist = FAN OFF</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- RELAY SECTION -->
     <div class="relay-section">
       <h2 class="section-title">⚡ Custom Relays</h2>

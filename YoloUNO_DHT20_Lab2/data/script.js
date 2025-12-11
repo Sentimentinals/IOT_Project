@@ -1030,3 +1030,150 @@ window.addEventListener('beforeunload', function () {
         saveNotifications();
     }
 });
+
+// =============================================================================
+// GESTURE CONTROL
+// =============================================================================
+
+let gestureStreamActive = false;
+let gestureStatusInterval = null;
+
+function toggleGestureStream() {
+    const serverInput = document.getElementById('gestureServerIP');
+    const connectBtn = document.getElementById('gestureConnectBtn');
+    const videoWrapper = document.getElementById('gestureVideoWrapper');
+    const videoFeed = document.getElementById('gestureVideoFeed');
+    
+    if (!gestureStreamActive) {
+        // Start stream
+        let serverIP = serverInput.value.trim();
+        
+        if (!serverIP) {
+            alert('⚠️ Please enter the Python server IP address!\n\nExample: 192.168.1.100:5000');
+            return;
+        }
+        
+        // Add http:// if not present
+        if (!serverIP.startsWith('http://') && !serverIP.startsWith('https://')) {
+            serverIP = 'http://' + serverIP;
+        }
+        
+        // Start the camera on Python server
+        fetch(serverIP + '/start', { 
+            method: 'POST',
+            mode: 'cors'
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Gesture server started:', data);
+            
+            // Show video feed
+            videoFeed.src = serverIP + '/video_feed';
+            videoWrapper.style.display = 'block';
+            
+            // Update button
+            connectBtn.innerHTML = '⏹️ Stop Camera';
+            connectBtn.classList.add('connected');
+            
+            gestureStreamActive = true;
+            
+            // Start polling status
+            gestureStatusInterval = setInterval(() => {
+                fetchGestureStatus(serverIP);
+            }, 500);
+            
+            // Save server IP
+            localStorage.setItem('gesture_server_ip', serverIP);
+            
+            addNotification(
+                'info',
+                '📷 Gesture Camera Started',
+                'Connected to: ' + serverIP
+            );
+        })
+        .catch(err => {
+            console.error('Failed to start gesture server:', err);
+            alert('❌ Cannot connect to gesture server!\n\nMake sure:\n1. Python server is running\n2. IP address is correct\n3. Both devices are on same network');
+        });
+        
+    } else {
+        // Stop stream
+        const serverIP = localStorage.getItem('gesture_server_ip') || serverInput.value.trim();
+        
+        fetch(serverIP + '/stop', { 
+            method: 'POST',
+            mode: 'cors'
+        }).catch(() => {});
+        
+        // Hide video feed
+        videoFeed.src = '';
+        videoWrapper.style.display = 'none';
+        
+        // Update button
+        connectBtn.innerHTML = '📷 Start Camera';
+        connectBtn.classList.remove('connected');
+        
+        gestureStreamActive = false;
+        
+        // Stop polling
+        if (gestureStatusInterval) {
+            clearInterval(gestureStatusInterval);
+            gestureStatusInterval = null;
+        }
+        
+        // Reset status displays
+        document.getElementById('currentGesture').textContent = '--';
+        document.getElementById('gestureMqttStatus').textContent = 'MQTT: --';
+        
+        addNotification(
+            'info',
+            '📷 Gesture Camera Stopped',
+            'Disconnected from gesture server'
+        );
+    }
+}
+
+function fetchGestureStatus(serverIP) {
+    fetch(serverIP + '/status', { mode: 'cors' })
+        .then(response => response.json())
+        .then(data => {
+            const gestureEl = document.getElementById('currentGesture');
+            const mqttEl = document.getElementById('gestureMqttStatus');
+            
+            if (gestureEl) {
+                gestureEl.textContent = data.gesture || 'NONE';
+                gestureEl.className = 'gesture-value';
+                
+                if (data.gesture === 'FAN_ON') {
+                    gestureEl.classList.add('fan-on');
+                } else if (data.gesture === 'FAN_OFF') {
+                    gestureEl.classList.add('fan-off');
+                }
+            }
+            
+            if (mqttEl) {
+                if (data.mqtt_connected) {
+                    mqttEl.textContent = 'MQTT: Connected ✅';
+                    mqttEl.className = 'gesture-mqtt-status connected';
+                } else {
+                    mqttEl.textContent = 'MQTT: Disconnected ❌';
+                    mqttEl.className = 'gesture-mqtt-status disconnected';
+                }
+            }
+        })
+        .catch(err => {
+            console.log('Gesture status fetch error:', err);
+        });
+}
+
+// Load saved gesture server IP on page load
+window.addEventListener('DOMContentLoaded', function() {
+    const savedIP = localStorage.getItem('gesture_server_ip');
+    if (savedIP) {
+        const serverInput = document.getElementById('gestureServerIP');
+        if (serverInput) {
+            // Remove http:// prefix for display
+            serverInput.value = savedIP.replace('http://', '').replace('https://', '');
+        }
+    }
+});
